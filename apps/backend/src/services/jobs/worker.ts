@@ -1,6 +1,13 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { type Job, Queue, shutdownManager, Worker } from 'bunqueue/client';
+import {
+  type Job,
+  type Processor,
+  Queue,
+  shutdownManager,
+  Worker,
+  type WorkerOptions,
+} from 'bunqueue/client';
 import { CaptionServiceError } from '#lib/media/hosted-captions.ts';
 import type { YoutubePlaylists } from '#lib/media/playlists.ts';
 import { type Actor, youtubeEmbed } from '#models/records.ts';
@@ -25,7 +32,7 @@ export class JobWorker {
   private media!: Queue<RecordJob>;
   private discovery!: Queue<PlaylistJob>;
   private dispatch!: Queue<null>;
-  private workers: (Worker<RecordJob> | Worker<PlaylistJob> | Worker<null>)[] = [];
+  private workers: Pick<Worker, 'pause' | 'close'>[] = [];
   private readonly polling = new Set<AbortController>();
 
   constructor(
@@ -49,17 +56,14 @@ export class JobWorker {
     this.dispatch = new Queue('dispatch', queueOptions);
     this.stopped = false;
     this.workers = [
-      new Worker<RecordJob>('transcripts', (job) => this.processRecord(job), {
+      createWorker<RecordJob>('transcripts', (job) => this.processRecord(job), {
         ...connection,
         concurrency: 4,
       }),
-      new Worker<RecordJob>('media', (job) => this.processRecord(job), connection),
-      new Worker<PlaylistJob>('playlists', (job) => this.pollPlaylist(job), connection),
-      new Worker<null>('dispatch', () => this.reconcile(), connection),
+      createWorker<RecordJob>('media', (job) => this.processRecord(job), connection),
+      createWorker<PlaylistJob>('playlists', (job) => this.pollPlaylist(job), connection),
+      createWorker<null>('dispatch', () => this.reconcile(), connection),
     ];
-    for (const worker of this.workers) {
-      worker.on('error', (error) => console.error('Job queue error:', message(error)));
-    }
     // Playlist deadlines remain hourly. A minute tick also recovers record writes
     // committed before queue submission, including work from older deployments.
     await this.dispatch.upsertJobScheduler(
@@ -115,7 +119,7 @@ export class JobWorker {
     this.polling.add(controller);
     try {
       if (this.stopped) {
-        await job.moveToDelayed(Date.now() + 1000);
+        await job.moveToDelayed(Date.now() + 1000, job.token);
         return;
       }
       if (!(await this.playlists.beginPoll(input))) {
@@ -130,7 +134,7 @@ export class JobWorker {
       this.wake();
     } catch (error) {
       if (this.stopped) {
-        await job.moveToDelayed(Date.now() + 1000);
+        await job.moveToDelayed(Date.now() + 1000, job.token);
       } else if (job.attemptsMade + 1 >= options.attempts) {
         await this.playlists.failure({ ...input, error: message(error) });
       } else {
@@ -143,7 +147,7 @@ export class JobWorker {
 
   private async processRecord(job: Job<RecordJob>) {
     if (this.stopped) {
-      await job.moveToDelayed(Date.now() + 1000);
+      await job.moveToDelayed(Date.now() + 1000, job.token);
       return;
     }
     const current = await this.jobs.current(job.data);
@@ -152,7 +156,7 @@ export class JobWorker {
     }
     const deadline = current.nextAttemptAt ? Date.parse(current.nextAttemptAt) : 0;
     if (deadline > Date.now()) {
-      await job.moveToDelayed(deadline);
+      await job.moveToDelayed(deadline, job.token);
       return;
     }
     const record = await this.records.get(job.data);
@@ -163,7 +167,7 @@ export class JobWorker {
       await this.processor.run(record);
     } catch (error) {
       if (this.stopped) {
-        await job.moveToDelayed(Date.now() + 1000);
+        await job.moveToDelayed(Date.now() + 1000, job.token);
         return;
       }
       if (!(await this.jobs.current(job.data))) {
@@ -171,7 +175,7 @@ export class JobWorker {
       }
       const retryAt = await this.retry(job.data, current.attempts, error);
       if (retryAt !== null) {
-        await job.moveToDelayed(retryAt);
+        await job.moveToDelayed(retryAt, job.token);
       }
     }
   }
@@ -225,6 +229,12 @@ export class JobWorker {
     }
     shutdownManager();
   }
+}
+function createWorker<T>(name: string, processor: Processor<T>, options: WorkerOptions) {
+  const worker = new Worker(name, processor, options);
+  worker.on('error', (error) => console.error('Job queue error:', message(error)));
+  worker.on('failed', (job, error) => console.error('Job failed:', job?.id, message(error)));
+  return worker;
 }
 function message(error: unknown) {
   return (error instanceof Error ? error.message : 'Processing failed. Please retry.').slice(

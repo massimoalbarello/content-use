@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { SQL } from 'bun';
 import { createSqliteDatabase } from '../../src/db/client';
 import { migrate } from '../../src/db/migrate';
 import { SqlitePlaylistsRepository } from '../../src/repositories/playlists/repository';
@@ -61,7 +62,7 @@ test('compiled SQLite worker survives killed processes, rate limits, cancelled w
       url: 'https://www.youtube.com/playlist?list=PLabcdefghijk',
       title: 'Playlist',
     });
-    const retryAt = Date.now() + 3500;
+    const retryAt = Date.now() + 10000;
     await configure({ retryAt });
     start();
     await until(async () => (await list())[0]?.progress.startsWith('Retry scheduled') ?? false);
@@ -167,6 +168,14 @@ test('compiled SQLite worker survives killed processes, rate limits, cancelled w
     child!.kill('SIGTERM');
     expect(await child!.exited).toBe(0);
     child = undefined;
+    const queueDb = new SQL({ adapter: 'sqlite', filename: join(folder, 'jobs.sqlite') });
+    try {
+      const [failures] =
+        await queueDb`SELECT count(*) AS count FROM queue_events WHERE event_type='failed'`;
+      expect(failures.count).toBe(0);
+    } finally {
+      await queueDb.close();
+    }
   } catch (error) {
     await kill();
     throw new Error(
