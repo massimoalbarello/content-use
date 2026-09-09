@@ -1,6 +1,6 @@
 import type { RecordSummary } from '@repo/backend/record';
 import { Link } from '@tanstack/react-router';
-import { ArrowUpRight, AudioLines, Film } from 'lucide-react';
+import { AudioLines, Film } from 'lucide-react';
 import { useState } from 'react';
 import { PlaylistTags } from './playlist-tags';
 import { durationLabel, Status } from './status';
@@ -32,17 +32,16 @@ function RecordThumbnail({ record }: { record: RecordSummary }) {
 export function RecordList({ records }: { records: RecordSummary[] }) {
   return (
     <div>
-      <div className="hidden grid-cols-[minmax(0,1fr)_70px_115px_65px_16px] gap-4 border-b border-border pb-3 text-[11px] uppercase tracking-widest text-muted-foreground lg:grid">
+      <div className="hidden grid-cols-[minmax(0,1fr)_70px_115px_65px] gap-4 border-b border-border pb-3 text-[11px] uppercase tracking-widest text-muted-foreground lg:grid">
         <span>Record</span>
         <span>Duration</span>
         <span>Status</span>
         <span>Added</span>
-        <span />
       </div>
       {records.map((record) => (
         <div
           key={record.id}
-          className="group grid items-center gap-4 border-b border-border py-5 transition-colors hover:bg-muted/40 lg:grid-cols-[minmax(0,1fr)_70px_115px_65px_16px]"
+          className="grid items-center gap-4 border-b border-border py-5 transition-colors hover:bg-muted/40 lg:grid-cols-[minmax(0,1fr)_70px_115px_65px]"
         >
           <div className="flex min-w-0 items-center gap-4">
             <Link
@@ -88,7 +87,6 @@ export function RecordList({ records }: { records: RecordSummary[] }) {
               day: 'numeric',
             })}
           </span>
-          <ArrowUpRight className="hidden size-4 text-muted-foreground motion-safe:transition-transform motion-safe:group-hover:translate-x-0.5 lg:block" />
         </div>
       ))}
     </div>
