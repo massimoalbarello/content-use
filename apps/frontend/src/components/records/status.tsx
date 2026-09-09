@@ -13,12 +13,20 @@ export function Status({
     ready: hasTranscript ? 'Ready' : 'No captions',
     failed: 'Needs attention',
   }[status];
+  const color = {
+    queued: 'text-muted-foreground',
+    downloading: 'text-muted-foreground',
+    transcribing: 'text-muted-foreground',
+    ready: hasTranscript
+      ? 'text-green-700 dark:text-green-400'
+      : 'text-yellow-700 dark:text-yellow-400',
+    failed: 'text-orange-700 dark:text-orange-400',
+  }[status];
+  const processing = status === 'queued' || status === 'downloading' || status === 'transcribing';
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 text-xs whitespace-nowrap ${status === 'failed' ? 'text-destructive' : 'text-muted-foreground'}`}
-    >
+    <span className={`inline-flex items-center gap-1.5 text-xs whitespace-nowrap ${color}`}>
       <span
-        className={`size-1.5 rounded-full ${status === 'ready' ? 'bg-foreground' : status === 'failed' ? 'bg-destructive' : 'bg-muted-foreground motion-safe:animate-pulse'}`}
+        className={`size-1.5 rounded-full bg-current ${processing ? 'motion-safe:animate-pulse' : ''}`}
       />
       {label}
     </span>
