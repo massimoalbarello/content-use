@@ -3,6 +3,43 @@ import { SqlitePlaylistsRepository } from '../../src/repositories/playlists/repo
 import { SqliteRecordsRepository } from '../../src/repositories/records/repository';
 import { testDatabase } from '../support/database';
 
+test('concurrent record creation reuses owner-scoped source identity without resetting saved state', async () => {
+  const db = await testDatabase();
+  const repo = new SqliteRecordsRepository(db);
+  try {
+    const sources = [
+      'https://youtu.be/rY0wnfFHYbs',
+      'https://www.youtube.com/watch?v=rY0wnfFHYbs',
+      'https://www.youtube.com/shorts/rY0wnfFHYbs',
+    ];
+    const created = await Promise.all(
+      sources.map((url, index) =>
+        repo.create({ ownerId: 'alice', id: `video-${index}`, title: 'Video', url }),
+      ),
+    );
+    expect(new Set(created.map((record) => record.id)).size).toBe(1);
+    const audio = {
+      ownerId: 'alice',
+      id: 'audio',
+      title: 'Audio',
+      url: 'https://example.com/talk.mp3',
+    };
+    await repo.create(audio);
+    await repo.finish({ ...audio, markdown: 'Saved captions' });
+    expect(await repo.create({ ...audio, id: 'duplicate', title: 'Replacement' })).toMatchObject({
+      id: 'audio',
+      title: 'Audio',
+      status: 'ready',
+      markdown: 'Saved captions',
+    });
+    const foreign = await repo.create({ ...audio, ownerId: 'bob', id: 'bob-audio' });
+    expect(foreign.id).toBe('bob-audio');
+    expect((await repo.list({ ownerId: 'alice', search: '', offset: 0 })).total).toBe(2);
+  } finally {
+    await db.close();
+  }
+});
+
 test('owner scoping prevents cross-owner reads, edits, search, deletion, and chunk access', async () => {
   const db = await testDatabase();
   const repo = new SqliteRecordsRepository(db);
@@ -67,8 +104,8 @@ test('status and playlist filters compose before pagination, with owner-scoped m
         youtubeId: `PL${title}`,
         url: `https://www.youtube.com/playlist?list=PL${title}`,
       });
-    const first = await createPlaylist('alice', 'First');
-    const second = await createPlaylist('alice', 'Second');
+    const first = await createPlaylist('alice', 'Z first imported');
+    const second = await createPlaylist('alice', 'A later imported');
     const foreign = await createPlaylist('bob', 'Foreign');
     const videos = Array.from({ length: 55 }, (_, i) => ({
       id: `video${String(i).padStart(6, '0')}`,
@@ -95,10 +132,7 @@ test('status and playlist filters compose before pagination, with owner-scoped m
     expect((await repo.list({ ...base, search: '%', status: 'ready' })).total).toBe(0);
     const [shared] = (await repo.list({ ...base, playlistId: second })).records;
     const links = await repo.playlistLinks({ ownerId: 'alice', ids: [shared!.id] });
-    expect(links.get(shared!.id)).toEqual([
-      { id: first, title: 'First' },
-      { id: second, title: 'Second' },
-    ]);
+    expect(links.get(shared!.id)).toEqual([{ id: first, title: 'Z first imported' }]);
     expect((await repo.playlistLinks({ ownerId: 'bob', ids: [shared!.id] })).size).toBe(0);
     expect((await repo.list({ ...base, playlistId: foreign })).total).toBe(0);
     expect(await playlists.list({ ownerId: 'bob', id: first })).toEqual([]);

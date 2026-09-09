@@ -5,6 +5,7 @@ import {
   createRouter,
   Link,
   lazyRouteComponent,
+  redirect,
 } from '@tanstack/react-router';
 import { Shell } from './routes/shell';
 
@@ -33,8 +34,23 @@ export const dashboardRoute = createRoute({
 });
 export const newRoute = createRoute({
   getParentRoute: () => root,
-  path: '/new',
+  path: '/records/new',
   component: lazyRouteComponent(() => import('./routes/new-record'), 'NewRecord'),
+});
+const legacyNewRoute = createRoute({
+  getParentRoute: () => root,
+  path: '/new',
+  beforeLoad: () => {
+    throw redirect({ to: '/records/new' });
+  },
+});
+export const newPlaylistRoute = createRoute({
+  getParentRoute: () => root,
+  path: '/playlists/new',
+  validateSearch: (search: Record<string, unknown>) => ({
+    url: typeof search.url === 'string' ? search.url.slice(0, 4096) : '',
+  }),
+  component: lazyRouteComponent(() => import('./routes/new-playlist'), 'NewPlaylist'),
 });
 export const recordRoute = createRoute({
   getParentRoute: () => root,
@@ -77,6 +93,8 @@ export const router = createRouter({
   routeTree: root.addChildren([
     dashboardRoute,
     newRoute,
+    legacyNewRoute,
+    newPlaylistRoute,
     recordRoute,
     playlistsRoute,
     playlistRoute,

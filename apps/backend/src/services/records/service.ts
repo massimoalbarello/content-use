@@ -5,6 +5,7 @@ import {
   publicRecord,
   recordMarkdown,
   recordSummary,
+  youtubeVideoId,
 } from '#models/records.ts';
 import type { RecordListInput, RecordsRepository } from '#repositories/records/repository.ts';
 export type RecordsJobs = {
@@ -40,8 +41,8 @@ export class RecordsService {
     return publicRecord(record, links.get(input.id));
   }
   async create({ ownerId, url }: Actor & { url: string }) {
-    if (playlistUrl(url)) {
-      throw new DomainError('Add this link as a playlist to import all its videos.');
+    if (!youtubeVideoId(url) && playlistUrl(url)) {
+      throw new DomainError('Use Add playlist to choose which videos to import from this link.');
     }
     const safeUrl = await this.validateUrl(url);
     const record = await this.repository.create({
@@ -51,7 +52,7 @@ export class RecordsService {
       title: safeUrl,
     });
     this.jobs.wake();
-    return publicRecord(record);
+    return this.get({ ownerId, id: record.id });
   }
   async edit(input: Actor & { id: string; title: string; markdown: string }) {
     await this.require(input);

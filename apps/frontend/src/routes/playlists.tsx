@@ -18,7 +18,8 @@ export function PlaylistsPage() {
           </p>
         </div>
         <Link
-          to="/new"
+          to="/playlists/new"
+          search={{ url: '' }}
           className="inline-flex items-center gap-2 rounded-lg bg-foreground px-4 py-2.5 text-sm text-background"
         >
           <Plus size={16} />

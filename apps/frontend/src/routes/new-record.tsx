@@ -1,8 +1,7 @@
-import { playlistUrl } from '@repo/backend/playlist';
 import { useForm } from '@tanstack/react-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft, ArrowRight, Link2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { ErrorNotice } from '../components/layout/states';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -11,22 +10,10 @@ export function NewRecord() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const create = useMutation({
-    mutationFn: async (value: { url: string }) =>
-      playlistUrl(value.url)
-        ? { kind: 'playlist' as const, ...unwrap(await api.playlists.post(value)) }
-        : { kind: 'record' as const, ...unwrap(await api.records.post(value)) },
-    onSuccess: async (record) => {
+    mutationFn: async (value: { url: string }) => unwrap(await api.records.post(value)),
+    onSuccess: async ({ id }) => {
       await queryClient.invalidateQueries({ queryKey: ['records'] });
-      await queryClient.invalidateQueries({ queryKey: ['playlists'] });
-      if (record.kind === 'playlist') {
-        await navigate({
-          to: '/playlists/$id',
-          params: { id: record.id },
-          search: { q: '' },
-        });
-      } else {
-        await navigate({ to: '/records/$id', params: { id: record.id } });
-      }
+      await navigate({ to: '/records/$id', params: { id } });
     },
   });
   const form = useForm({
@@ -45,15 +32,21 @@ export function NewRecord() {
         <ArrowLeft size={14} />
         All records
       </Link>
-      <div className="mt-12 mb-7 flex size-12 items-center justify-center rounded-xl bg-muted">
-        <Link2 strokeWidth={1.5} />
-      </div>
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        Add to your library
+      <h1 className="mt-10 text-3xl font-medium tracking-tight">Add records</h1>
+      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        Save a video or audio link to your library. Captions are queued automatically. Already saved
+        links open the existing record.
       </p>
-      <h1 className="mt-3 text-3xl font-medium tracking-tight">Start with a link.</h1>
-      <p className="mt-3 max-w-lg text-sm leading-6 text-muted-foreground">
-        Save a video, audio link, or public YouTube playlist with its captions.
+      <p className="mt-3 text-sm text-muted-foreground">
+        To choose videos from a playlist,{' '}
+        <Link
+          to="/playlists/new"
+          search={{ url: '' }}
+          className="text-foreground underline underline-offset-4"
+        >
+          add a playlist
+        </Link>
+        .
       </p>
       <form
         className="mt-9 space-y-6"
@@ -77,28 +70,21 @@ export function NewRecord() {
                 autoCorrect="off"
                 spellCheck={false}
                 required
+                maxLength={4096}
+                disabled={create.isPending}
                 placeholder="https://www.youtube.com/watch?v=…"
                 className="mt-2 h-11"
                 value={field.state.value}
                 onChange={(event) => field.handleChange(event.target.value)}
                 onBlur={field.handleBlur}
               />
-              <p className="mt-2 text-xs text-muted-foreground">
-                Playlists import each video and check for new additions every hour.
-              </p>
             </div>
           )}
         </form.Field>
         <ErrorNotice error={create.error} />
-        <div className="border-t border-border pt-6 flex flex-wrap justify-between items-center gap-4">
-          <p className="text-xs text-muted-foreground">
-            Captions are queued automatically, including when the service is busy.
-          </p>
-          <Button type="submit" className="h-10 px-4" disabled={create.isPending}>
-            {create.isPending ? 'Adding…' : 'Get captions'}
-            <ArrowRight size={16} />
-          </Button>
-        </div>
+        <Button type="submit" disabled={create.isPending}>
+          {create.isPending ? 'Adding…' : 'Add record'}
+        </Button>
       </form>
     </div>
   );

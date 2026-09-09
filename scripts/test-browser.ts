@@ -59,15 +59,15 @@ try {
   await page.getByRole('heading', { name: 'Records', exact: true }).waitFor({ timeout: 20000 });
   console.log('PASS real WebAuthn registration and authenticated dashboard');
   await testRecordScroll(page);
-  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Add records', exact: true }).first().click();
   await page.getByLabel('Source URL').fill('http://127.0.0.1/private');
-  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Add record', exact: true }).first().click();
   await page.getByRole('alert').filter({ hasText: 'public' }).waitFor();
   await page
     .getByLabel('Source URL')
     .fill('https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/samples/jfk.wav');
   assert.equal(await page.getByLabel('Title', { exact: true }).count(), 0);
-  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Add record', exact: true }).first().click();
   await page.getByText('No captions available.', { exact: false }).waitFor({ timeout: 120000 });
   await page.getByRole('button', { name: 'Edit record' }).click();
   await page.getByLabel('Title', { exact: true }).fill('A few words worth keeping');
@@ -114,9 +114,9 @@ try {
   );
   await page.screenshot({ path: '/tmp/content-use-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Add records', exact: true }).first().click();
   await page.getByLabel('Source URL').fill('https://www.youtube.com/watch?v=rY0wnfFHYbs');
-  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Add record', exact: true }).first().click();
   await page
     .getByRole('heading', { name: 'Open Models Change The Economics of AI', exact: true })
     .waitFor({ timeout: 75000 });

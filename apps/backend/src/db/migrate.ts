@@ -10,8 +10,19 @@ import dispatch from './migrations/0005_job_dispatch.sql' with { type: 'text' };
 
 import polls from './migrations/0006_playlist_polls.sql' with { type: 'text' };
 import accounts from './migrations/0007_accounts.sql' with { type: 'text' };
+import recordSources from './migrations/0008_record_source_lookup.sql' with { type: 'text' };
 
-const migrations = [auth, records, settings, playlists, jobs, dispatch, polls, accounts];
+const migrations = [
+  auth,
+  records,
+  settings,
+  playlists,
+  jobs,
+  dispatch,
+  polls,
+  accounts,
+  recordSources,
+];
 export async function migrate(db: SQL) {
   await db.unsafe('PRAGMA journal_mode = WAL');
   await db.unsafe('CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY)');
