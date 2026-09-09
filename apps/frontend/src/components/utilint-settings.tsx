@@ -67,13 +67,8 @@ export function UtilintSettings() {
           <summary className="cursor-pointer text-sm font-medium">Developer setup</summary>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
             Register Content Use in your utilint developer dashboard, then paste the client ID and
-            secret below. Register these URLs:
+            secret below. Use this callback URL:
           </p>
-          <p className="mt-4 text-sm">Connection start URL</p>
-          <code className="mt-2 block break-all rounded-lg bg-muted p-3 text-xs">
-            {connection.data.startUrl}
-          </code>
-          <p className="mt-4 text-sm">Redirect URL</p>
           <code className="mt-2 block break-all rounded-lg bg-muted p-3 text-xs">
             {connection.data.callback}
           </code>
