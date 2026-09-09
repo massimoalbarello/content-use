@@ -14,6 +14,21 @@ export function utilintRoutes({
   origin: string;
 }) {
   return new Elysia({ prefix: '/api' })
+    .get(
+      '/utilint/start',
+      async ({ request, redirect }) => {
+        const session = await auth.getSession(request.headers);
+        if (!session || session.user.id !== OWNER_USER_ID) {
+          return redirect('/?connect=utilint', 303);
+        }
+        const result = await utilint.begin({
+          ownerId: session.user.id,
+          sessionId: session.session.id,
+        });
+        return redirect(result.url, 303);
+      },
+      { query: t.Object({}, { additionalProperties: false }) },
+    )
     .resolve(async ({ request }) => {
       const session = await auth.getSession(request.headers);
       if (!session || session.user.id !== OWNER_USER_ID) {

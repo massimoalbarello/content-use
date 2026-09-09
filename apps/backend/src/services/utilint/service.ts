@@ -186,6 +186,7 @@ export function createUtilintService({
         origin: config?.origin ?? null,
         clientId: config?.clientId ?? null,
         callback,
+        startUrl: `${origin}/api/utilint/start`,
       };
     },
     configure(ownerId: string, input: ClientConfig) {

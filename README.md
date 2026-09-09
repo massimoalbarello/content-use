@@ -44,7 +44,9 @@ supported sources use yt-dlp. Sources without captions remain available to watch
 ## Summaries with utilint
 
 In **Settings → utilint**, register Content Use in your Utilint developer dashboard using the
-callback URL shown in Settings. Paste the client ID and one-time client secret, then save.
+callback and connection start URLs shown in Settings. The consent URL in Utilint’s dashboard runs
+the real connection, including returning after passkey login. Paste the client ID and one-time
+client secret, then save.
 Developer setup is hidden once connected; disconnect to change the app configuration.
 The default Utilint instance is `https://utilint-crrxrd.nibrun.app`; it can be changed for another
 self-hosted instance or localhost development.
