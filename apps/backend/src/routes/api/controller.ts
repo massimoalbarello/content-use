@@ -1,20 +1,29 @@
 import { Elysia } from 'elysia';
 import type { Auth } from '#lib/auth/better-auth.ts';
 import { OWNER_USER_ID } from '#lib/auth/owner-registration.ts';
+import {
+  AccountParams,
+  CreateAccount,
+  EditAccount,
+  FollowAccountPlaylists,
+} from '#routes/api/accounts/model.ts';
 import { PlaylistParams, UpdatePlaylist } from '#routes/api/playlists/model.ts';
 import { CreateRecord, EditRecord, ListRecords, RecordParams } from '#routes/api/records/model.ts';
 import { mediaResponse } from '#routes/media-response.ts';
+import type { AccountsService } from '#services/accounts/service.ts';
 import type { PlaylistsService } from '#services/playlists/service.ts';
 import type { RecordsService } from '#services/records/service.ts';
 export function createApi({
   auth,
   records,
   playlists,
+  accounts,
   origin,
 }: {
   auth: Auth;
   records: RecordsService;
   playlists: PlaylistsService;
+  accounts: AccountsService;
   origin: string;
 }) {
   return new Elysia({ prefix: '/api' })
@@ -30,6 +39,36 @@ export function createApi({
         return status(403, { message: 'Request origin is not allowed.' });
       }
     })
+    .get('/accounts', ({ ownerId }) => accounts.list({ ownerId }))
+    .post(
+      '/accounts',
+      async ({ ownerId, body, request, status }) =>
+        status(201, await accounts.create({ ownerId, ...body }, request.signal)),
+      { body: CreateAccount },
+    )
+    .get('/accounts/:id', ({ ownerId, params }) => accounts.get({ ownerId, ...params }), {
+      params: AccountParams,
+    })
+    .patch(
+      '/accounts/:id',
+      ({ ownerId, params, body }) => accounts.edit({ ownerId, ...params, ...body }),
+      { params: AccountParams, body: EditAccount },
+    )
+    .delete('/accounts/:id', ({ ownerId, params }) => accounts.remove({ ownerId, ...params }), {
+      params: AccountParams,
+    })
+    .get(
+      '/accounts/:id/playlists',
+      ({ ownerId, params, request }) =>
+        accounts.discoverPlaylists({ ownerId, ...params }, request.signal),
+      { params: AccountParams },
+    )
+    .post(
+      '/accounts/:id/playlists',
+      ({ ownerId, params, body, request }) =>
+        accounts.follow({ ownerId, ...params, ...body }, request.signal),
+      { params: AccountParams, body: FollowAccountPlaylists },
+    )
     .get('/playlists', ({ ownerId }) => playlists.list({ ownerId }))
     .get('/playlists/:id', ({ ownerId, params }) => playlists.get({ ownerId, ...params }), {
       params: PlaylistParams,

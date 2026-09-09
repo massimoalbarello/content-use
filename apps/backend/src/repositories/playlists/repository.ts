@@ -1,10 +1,14 @@
 import type { SQL } from 'bun';
+import type { AccountPlaylist } from '#models/accounts.ts';
 import type { Playlist, PlaylistPoll, PlaylistVideo } from '#models/playlists.ts';
 import { type Actor, mediaDuration, youtubeVideoId } from '#models/records.ts';
 export interface PlaylistsRepository {
   list(input: Actor & { id?: string }): Promise<Playlist[]>;
   beginPoll(input: Actor & { id: string; pollId: string }): Promise<boolean>;
   create(input: Actor & { youtubeId: string; url: string; title: string }): Promise<string>;
+  followAccount(
+    input: Actor & { accountId: string; playlists: AccountPlaylist[] },
+  ): Promise<string[] | null>;
   setEnabled(input: Actor & { id: string; enabled: boolean }): Promise<boolean>;
   due(now?: string): Promise<(Actor & { id: string; url: string; nextCheckAt: string })[]>;
   sync(
@@ -21,6 +25,8 @@ export class SqlitePlaylistsRepository implements PlaylistsRepository {
       youtube_id: string;
       url: string;
       title: string;
+      account_id: string | null;
+      account_title: string | null;
       enabled: number;
       checked_at: string | null;
       next_check_at: string;
@@ -31,13 +37,14 @@ export class SqlitePlaylistsRepository implements PlaylistsRepository {
       failed_count: number;
       active_count: number;
       retry_at: string | null;
-    }[] = await this.db`SELECT p.*, count(v.record_id) AS video_count,
+    }[] = await this.db`SELECT p.*, a.title AS account_title, count(v.record_id) AS video_count,
       sum(CASE WHEN r.status='ready' THEN 1 ELSE 0 END) AS ready_count,
       sum(CASE WHEN r.status IN ('queued','downloading','transcribing') THEN 1 ELSE 0 END) AS pending_count,
       sum(CASE WHEN r.status='failed' THEN 1 ELSE 0 END) AS failed_count,
       sum(CASE WHEN r.status IN ('downloading','transcribing') THEN 1 ELSE 0 END) AS active_count,
       min(CASE WHEN r.status='queued' THEN r.next_attempt_at END) AS retry_at
       FROM playlists p LEFT JOIN playlist_videos v ON v.playlist_id=p.id
+      LEFT JOIN accounts a ON a.id=p.account_id AND a.owner_id=p.owner_id
       LEFT JOIN records r ON r.id=v.record_id AND r.owner_id=p.owner_id
       WHERE p.owner_id=${ownerId} AND (${id ?? null} IS NULL OR p.id=${id ?? null}) GROUP BY p.id ORDER BY p.title,p.id`;
     const history = await this.pollHistory(ownerId, id);
@@ -47,6 +54,10 @@ export class SqlitePlaylistsRepository implements PlaylistsRepository {
       youtubeId: r.youtube_id,
       url: r.url,
       title: r.title,
+      account:
+        r.account_id && r.account_title !== null
+          ? { id: r.account_id, title: r.account_title }
+          : null,
       enabled: !!r.enabled,
       checkedAt: r.checked_at,
       nextCheckAt: r.next_check_at,
@@ -89,13 +100,28 @@ export class SqlitePlaylistsRepository implements PlaylistsRepository {
       ON CONFLICT(id) DO UPDATE SET attempts=attempts+1 WHERE playlist_id=excluded.playlist_id AND status='checking' RETURNING id`;
     return rows.length > 0;
   }
-  async create(input: Actor & { youtubeId: string; url: string; title: string }) {
-    const id = `pl-${crypto.randomUUID()}`;
-    const [row] = await this
-      .db`INSERT INTO playlists(id,owner_id,youtube_id,url,title,next_check_at)
-      VALUES(${id},${input.ownerId},${input.youtubeId},${input.url},${input.title},${new Date().toISOString()})
-      ON CONFLICT(owner_id,youtube_id) DO UPDATE SET enabled=1,next_check_at=excluded.next_check_at RETURNING id`;
-    return row.id as string;
+  create(input: Actor & { youtubeId: string; url: string; title: string }) {
+    return followPlaylist(this.db, input);
+  }
+  followAccount(input: Actor & { accountId: string; playlists: AccountPlaylist[] }) {
+    return this.db.begin(async (tx) => {
+      const [account] =
+        await tx`SELECT id FROM accounts WHERE id=${input.accountId} AND owner_id=${input.ownerId}`;
+      if (!account) {
+        return null;
+      }
+      const ids: string[] = [];
+      for (const playlist of input.playlists) {
+        ids.push(
+          await followPlaylist(tx, {
+            ...playlist,
+            ownerId: input.ownerId,
+            accountId: input.accountId,
+          }),
+        );
+      }
+      return ids;
+    });
   }
   setEnabled(input: Actor & { id: string; enabled: boolean }) {
     return this.db.begin(async (tx) => {
@@ -155,6 +181,15 @@ export class SqlitePlaylistsRepository implements PlaylistsRepository {
       }
     });
   }
+}
+async function followPlaylist(db: SQL, input: Actor & AccountPlaylist & { accountId?: string }) {
+  const [row] =
+    await db`INSERT INTO playlists(id,owner_id,youtube_id,url,title,next_check_at,account_id)
+    VALUES(${`pl-${crypto.randomUUID()}`},${input.ownerId},${input.youtubeId},${input.url},${input.title},${new Date().toISOString()},${input.accountId ?? null})
+    ON CONFLICT(owner_id,youtube_id) DO UPDATE SET enabled=1,next_check_at=excluded.next_check_at,
+      account_id=coalesce(playlists.account_id,excluded.account_id),
+      title=CASE WHEN playlists.title=playlists.url THEN excluded.title ELSE playlists.title END RETURNING id`;
+  return row.id as string;
 }
 type PollRow = {
   id: string;

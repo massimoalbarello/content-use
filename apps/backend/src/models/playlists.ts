@@ -5,6 +5,7 @@ export type Playlist = {
   youtubeId: string;
   url: string;
   title: string;
+  account: { id: string; title: string } | null;
   enabled: boolean;
   checkedAt: string | null;
   nextCheckAt: string;

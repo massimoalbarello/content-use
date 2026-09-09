@@ -4,7 +4,10 @@
 
 A private library of videos and captions. Paste a public audio/video URL or YouTube playlist to
 create searchable Markdown records with embedded playback and source captions. Playlists sync
-hourly; bunqueue handles durable jobs and retries. Sign in with a passkey to manage your records.
+hourly; bunqueue handles durable jobs and retries. Add a YouTube handle or channel URL in Accounts
+to discover public playlists and select which ones to follow. Saved accounts can be renamed or
+removed; removing an account preserves its playlists, hourly updates, and records. Sign in with a
+passkey to manage your library.
 
 Built using [Context Use](https://github.com/massimoalbarello/context-use) as the reference for
 passkeys, repository structure, and engineering guidelines.

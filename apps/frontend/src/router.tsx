@@ -60,6 +60,21 @@ export const settingsRoute = createRoute({
   path: '/settings',
   component: lazyRouteComponent(() => import('./routes/settings'), 'Settings'),
 });
+export const accountsRoute = createRoute({
+  getParentRoute: () => root,
+  path: '/accounts',
+  component: lazyRouteComponent(() => import('./routes/accounts'), 'AccountsPage'),
+});
+export const newAccountRoute = createRoute({
+  getParentRoute: () => root,
+  path: '/accounts/new',
+  component: lazyRouteComponent(() => import('./routes/new-account'), 'NewAccount'),
+});
+export const accountRoute = createRoute({
+  getParentRoute: () => root,
+  path: '/accounts/$id',
+  component: lazyRouteComponent(() => import('./routes/account'), 'AccountPage'),
+});
 export const router = createRouter({
   routeTree: root.addChildren([
     dashboardRoute,
@@ -68,6 +83,9 @@ export const router = createRouter({
     playlistsRoute,
     playlistRoute,
     settingsRoute,
+    accountsRoute,
+    newAccountRoute,
+    accountRoute,
   ]),
 });
 declare module '@tanstack/react-router' {

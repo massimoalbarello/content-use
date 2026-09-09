@@ -1,8 +1,7 @@
 import { type PlaylistVideo, playlistUrl } from '#models/playlists.ts';
 import { mediaDuration } from '#models/records.ts';
 import type { MediaPipeline } from './pipeline';
-import { runMediaProcess } from './process';
-import { createDownloadProxy } from './proxy';
+import { youtubeListing } from './youtube-listing';
 export class YoutubePlaylists {
   constructor(
     private readonly pipeline: Pick<MediaPipeline, 'binaries'>,
@@ -13,41 +12,15 @@ export class YoutubePlaylists {
     if (!source) {
       throw new Error('Use a public YouTube playlist URL.');
     }
-    const { downloader } = await this.pipeline.binaries();
-    const proxy = await createDownloadProxy();
-    try {
-      const json = await runMediaProcess({
-        command: [
-          downloader,
-          '--ignore-config',
-          '--flat-playlist',
-          '--skip-download',
-          '--dump-single-json',
-          '--no-cache-dir',
-          '--no-warnings',
-          '--socket-timeout',
-          '20',
-          '--retries',
-          '2',
-          '--extractor-retries',
-          '2',
-          '--playlist-end',
-          '10001',
-          '--proxy',
-          proxy.url,
-          '--geo-verification-proxy',
-          proxy.url,
-          '--',
-          source.url,
-        ],
-        cwd: this.dataFolder,
+    return parsePlaylist(
+      await youtubeListing({
+        pipeline: this.pipeline,
+        dataFolder: this.dataFolder,
+        url: source.url,
+        limit: 10000,
         signal,
-        maxStdoutBytes: 16 * 1024 * 1024,
-      });
-      return parsePlaylist(json);
-    } finally {
-      proxy.close();
-    }
+      }),
+    );
   }
 }
 export function parsePlaylist(json: string) {

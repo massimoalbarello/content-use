@@ -2,6 +2,7 @@ import { Elysia } from 'elysia';
 import type { Auth } from '#lib/auth/better-auth.ts';
 import { DomainError } from '#models/records.ts';
 import { createApi } from '#routes/api/controller.ts';
+import type { AccountsService } from '#services/accounts/service.ts';
 import type { OwnerRegistrationService } from '#services/owner-registration/service.ts';
 import type { PlaylistsService } from '#services/playlists/service.ts';
 import type { RecordsService } from '#services/records/service.ts';
@@ -10,6 +11,7 @@ export function createApp({
   records,
   registration,
   playlists,
+  accounts,
   origin,
   assets = new Map<string, string>(),
 }: {
@@ -17,10 +19,11 @@ export function createApp({
   records: RecordsService;
   registration: OwnerRegistrationService;
   playlists: PlaylistsService;
+  accounts: AccountsService;
   origin: string;
   assets?: Map<string, string>;
 }) {
-  return new Elysia({ serve: { maxRequestBodySize: 2 * 1024 * 1024 } })
+  return new Elysia({ serve: { maxRequestBodySize: 2 * 1024 * 1024, idleTimeout: 120 } })
     .onError(({ error, code, status }) => {
       if (error instanceof DomainError) {
         return status(error.status, { message: error.message });
@@ -44,7 +47,7 @@ export function createApp({
     .get('/api/owner-registration', () => registration.status())
     .get('/api/auth/*', ({ request }) => auth.handler(request), { parse: 'none' })
     .post('/api/auth/*', ({ request }) => auth.handler(request), { parse: 'none' })
-    .use(createApi({ auth, records, playlists, origin }))
+    .use(createApi({ auth, records, playlists, accounts, origin }))
     .get('/*', ({ path }) => {
       if (path.startsWith('/api/')) {
         return new Response('Not found', { status: 404 });

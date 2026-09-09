@@ -5,15 +5,18 @@ import { createSqliteDatabase } from './db/client';
 import { migrate } from './db/migrate';
 import { loadAuthSecret } from './lib/auth/auth-secret';
 import { createAuth } from './lib/auth/better-auth';
+import { YoutubeAccounts } from './lib/media/accounts';
 import { HostedCaptions } from './lib/media/hosted-captions';
 import { MediaPipeline } from './lib/media/pipeline';
 import { YoutubePlaylists } from './lib/media/playlists';
 import { validatePublicUrl } from './lib/media/public-url';
+import { SqliteAccountsRepository } from './repositories/accounts/repository';
 import { SqliteCaptionQuota } from './repositories/jobs/quota';
 import { SqliteJobsRepository } from './repositories/jobs/repository';
 import { SqliteOwnerRegistrationRepository } from './repositories/owner-registration/repository';
 import { SqlitePlaylistsRepository } from './repositories/playlists/repository';
 import { SqliteRecordsRepository } from './repositories/records/repository';
+import { AccountsService } from './services/accounts/service';
 import { RecordProcessor } from './services/jobs/processor';
 import { JobWorker } from './services/jobs/worker';
 import { OwnerRegistrationService } from './services/owner-registration/service';
@@ -48,6 +51,12 @@ const jobs = new JobWorker(
   new YoutubePlaylists(pipeline, dataFolder),
 );
 const playlists = new PlaylistsService(playlistRepository, jobs);
+const accounts = new AccountsService(
+  new SqliteAccountsRepository(database),
+  playlistRepository,
+  new YoutubeAccounts(pipeline, dataFolder),
+  jobs,
+);
 const records = new RecordsService(repository, jobs, validatePublicUrl);
 const registration = new OwnerRegistrationService(new SqliteOwnerRegistrationRepository(database));
 void pipeline
@@ -60,7 +69,7 @@ void pipeline
     ),
   );
 await jobs.start(dataFolder);
-const app = createApp({ auth, records, registration, playlists, origin, assets }).listen({
+const app = createApp({ auth, records, registration, playlists, accounts, origin, assets }).listen({
   hostname: '0.0.0.0',
   port,
 });

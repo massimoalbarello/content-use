@@ -1,4 +1,5 @@
 import type { Playlist } from '@repo/backend/playlist';
+import { Link } from '@tanstack/react-router';
 import { ArrowUpRight, Pause, Play } from 'lucide-react';
 import { Button } from '../ui/button';
 import { PlaylistStatus } from './playlist-status';
@@ -20,6 +21,18 @@ export function PlaylistOverview({
           <p className="mt-3 text-xs text-muted-foreground">
             {playlist.videoCount} records · {playlist.readyCount} completed
           </p>
+          {playlist.account && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              From account{' '}
+              <Link
+                to="/accounts/$id"
+                params={{ id: playlist.account.id }}
+                className="hover:underline"
+              >
+                {playlist.account.title}
+              </Link>
+            </p>
+          )}
           <a
             href={playlist.url}
             target="_blank"

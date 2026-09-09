@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet } from '@tanstack/react-router';
-import { Library, ListVideo, LockKeyhole, LogOut, Settings2 } from 'lucide-react';
+import { Library, ListVideo, LockKeyhole, LogOut, Settings2, Users } from 'lucide-react';
 import { Brand } from '../components/layout/brand';
 import { ErrorNotice, Loading } from '../components/layout/states';
 import { Button } from '../components/ui/button';
@@ -78,6 +78,14 @@ export function Shell() {
           >
             <ListVideo size={17} />
             Playlists
+          </Link>
+          <Link
+            to="/accounts"
+            activeProps={{ className: 'bg-sidebar-accent font-medium text-foreground' }}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground"
+          >
+            <Users size={17} />
+            Accounts
           </Link>
           <Link
             to="/settings"

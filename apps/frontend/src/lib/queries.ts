@@ -50,3 +50,22 @@ export const playlistOptions = (id: string) =>
     queryFn: async () => unwrap(await api.playlists({ id }).get()),
     refetchInterval: 5000,
   });
+
+export const accountsOptions = queryOptions({
+  queryKey: ['accounts'],
+  queryFn: async () => unwrap(await api.accounts.get()),
+});
+export const accountOptions = (id: string) =>
+  queryOptions({
+    queryKey: ['accounts', id],
+    queryFn: async () => unwrap(await api.accounts({ id }).get()),
+  });
+export const accountPlaylistsOptions = (id: string) =>
+  queryOptions({
+    queryKey: ['accounts', id, 'discovery'],
+    queryFn: async ({ signal }) =>
+      unwrap(await api.accounts({ id }).playlists.get({ fetch: { signal } })),
+    staleTime: 60000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });

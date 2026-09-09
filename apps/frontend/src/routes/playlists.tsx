@@ -62,6 +62,15 @@ export function PlaylistsPage() {
                       {playlist.readyCount} completed · {playlist.pendingCount} waiting
                       {playlist.failedCount > 0 && ` · ${playlist.failedCount} failed`}
                     </p>
+                    {playlist.account && (
+                      <Link
+                        to="/accounts/$id"
+                        params={{ id: playlist.account.id }}
+                        className="mt-1 inline-block text-xs text-muted-foreground hover:underline"
+                      >
+                        {playlist.account.title}
+                      </Link>
+                    )}
                   </td>
                   <td className="hidden py-5 pr-5 tabular-nums lg:table-cell">
                     {playlist.videoCount}
