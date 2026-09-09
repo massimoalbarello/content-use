@@ -2,13 +2,7 @@ import { Elysia } from 'elysia';
 import type { Auth } from '#lib/auth/better-auth.ts';
 import { OWNER_USER_ID } from '#lib/auth/owner-registration.ts';
 import { PlaylistParams, UpdatePlaylist } from '#routes/api/playlists/model.ts';
-import {
-  CreateRecord,
-  EditRecord,
-  ImportCaptions,
-  ListRecords,
-  RecordParams,
-} from '#routes/api/records/model.ts';
+import { CreateRecord, EditRecord, ListRecords, RecordParams } from '#routes/api/records/model.ts';
 import { mediaResponse } from '#routes/media-response.ts';
 import type { PlaylistsService } from '#services/playlists/service.ts';
 import type { RecordsService } from '#services/records/service.ts';
@@ -102,10 +96,5 @@ export function createApi({
           },
         }),
       { params: RecordParams },
-    )
-    .post(
-      '/records/:id/captions',
-      ({ ownerId, params, body }) => records.importCaptions({ ownerId, ...params, ...body }),
-      { params: RecordParams, body: ImportCaptions },
     );
 }

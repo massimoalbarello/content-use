@@ -1,4 +1,3 @@
-import { parseCaptions } from '#lib/media/captions.ts';
 import { playlistUrl } from '#models/playlists.ts';
 import {
   type Actor,
@@ -6,7 +5,6 @@ import {
   publicRecord,
   recordMarkdown,
   recordSummary,
-  youtubeEmbed,
 } from '#models/records.ts';
 import type { RecordListInput, RecordsRepository } from '#repositories/records/repository.ts';
 export type RecordsJobs = {
@@ -60,33 +58,6 @@ export class RecordsService {
     const record = await this.repository.edit({ ...input, title: input.title.trim() });
     if (!record) {
       throw new DomainError('Wait for processing to finish before editing.', 409);
-    }
-    return this.get(input);
-  }
-  async importCaptions(
-    input: Actor & {
-      id: string;
-      content: string;
-      format: 'json3' | 'vtt' | 'srt';
-      sourceUrl?: string;
-      title?: string;
-      duration?: number;
-    },
-  ) {
-    const record = await this.require(input);
-    if (
-      input.sourceUrl &&
-      input.sourceUrl !== record.url &&
-      (!youtubeEmbed(record.url) || youtubeEmbed(record.url) !== youtubeEmbed(input.sourceUrl))
-    ) {
-      throw new DomainError('These captions belong to a different source URL.');
-    }
-    const updated = await this.repository.importCaptions({
-      ...input,
-      markdown: parseCaptions(input.content, input.format),
-    });
-    if (!updated) {
-      throw new DomainError('Wait for processing to finish before importing captions.', 409);
     }
     return this.get(input);
   }

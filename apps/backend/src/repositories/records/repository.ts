@@ -73,9 +73,6 @@ export interface RecordsRepository {
   saveCaptions(
     input: Actor & { id: string; markdown: string; title: string; duration: number | null },
   ): Promise<void>;
-  importCaptions(
-    input: Actor & { id: string; markdown: string; title?: string; duration?: number },
-  ): Promise<ContentRecord | null>;
   chunk(input: Actor & { id: string; index: number }): Promise<string | null>;
   saveChunk(input: Actor & { id: string; index: number; text: string }): Promise<void>;
   finish(input: Actor & { id: string; markdown: string }): Promise<void>;
@@ -184,17 +181,6 @@ export class SqliteRecordsRepository implements RecordsRepository {
   }: Actor & { id: string; markdown: string; title: string; duration: number | null }) {
     await this
       .db`UPDATE records SET markdown=${markdown},title=CASE WHEN title=url THEN ${title} ELSE title END,duration=COALESCE(${duration},duration),updated_at=${new Date().toISOString()} WHERE owner_id=${ownerId} AND id=${id}`;
-  }
-  async importCaptions({
-    ownerId,
-    id,
-    markdown,
-    title,
-    duration,
-  }: Actor & { id: string; markdown: string; title?: string; duration?: number }) {
-    const [row]: Row[] = await this
-      .db`UPDATE records SET markdown=${markdown},title=CASE WHEN title=url THEN COALESCE(${title ?? null},title) ELSE title END,duration=COALESCE(${duration ?? null},duration),status='ready',progress='Captions imported',error=NULL,updated_at=${new Date().toISOString()} WHERE owner_id=${ownerId} AND id=${id} AND status IN ('ready','failed') RETURNING *`;
-    return row ? map(row) : null;
   }
   async chunk({ ownerId, id, index }: Actor & { id: string; index: number }) {
     const [row] = await this

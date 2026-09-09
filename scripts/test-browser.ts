@@ -84,39 +84,6 @@ try {
   assert.deepEqual(media, { status: 206, size: 100 });
   assert.equal((await fetch(`${base}/api/records/${id}/media`)).status, 401);
   console.log('PASS yt-dlp download, authenticated playback, range seeking, no-captions state');
-  await page.getByText('Import captions', { exact: true }).click();
-  await page.getByLabel('Caption file').setInputFiles({
-    name: 'sample.srt',
-    mimeType: 'text/plain',
-    buffer: Buffer.from('1\n00:00:00,000 --> 00:00:01,000\nThese are real imported captions.\n'),
-  });
-  await page.getByText('These are real imported captions.', { exact: true }).waitFor();
-  assert.equal(
-    (
-      await fetch(`${base}/api/records/${id}/captions`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', origin: base },
-        body: JSON.stringify({ content: '{}', format: 'json3' }),
-      })
-    ).status,
-    401,
-  );
-  const rejectedImport = await page.evaluate(async (id) => {
-    const response = await fetch(`/api/records/${id}/captions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        sourceUrl: 'https://youtu.be/rY0wnfFHYbs',
-        content: '1\n00:00:00,000 --> 00:00:01,000\nWrong source\n',
-        format: 'srt',
-      }),
-    });
-    return { status: response.status, record: await (await fetch(`/api/records/${id}`)).json() };
-  }, id);
-  assert.equal(rejectedImport.status, 400);
-  assert.equal(rejectedImport.record.markdown, 'These are real imported captions.');
-  assert.equal((await page.request.get(`${base}/api/settings`)).status(), 404);
-  console.log('PASS authenticated caption import and Markdown rendering');
   await page.getByRole('button', { name: 'Edit record' }).click();
   await page
     .getByLabel('Transcript · Markdown')
@@ -169,9 +136,7 @@ try {
     .getByRole('button', { name: 'Delete record', exact: true })
     .click();
   await page.getByRole('heading', { name: 'Records', exact: true }).waitFor();
-  console.log(
-    'PASS fresh YouTube URL → embedded video + full captions, no download or manual import',
-  );
+  console.log('PASS fresh YouTube URL → embedded video + full captions');
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await cdp.send('WebAuthn.removeVirtualAuthenticator', {
     authenticatorId: primary.authenticatorId,

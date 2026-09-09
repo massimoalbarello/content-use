@@ -133,9 +133,6 @@ export function RecordPage() {
               markdown={record.data.markdown}
               status={record.data.status}
             />
-            {['ready', 'failed'].includes(record.data.status) && (
-              <CaptionImport id={id} hasTranscript={Boolean(record.data.markdown)} />
-            )}
           </>
         ))}
     </div>
@@ -248,9 +245,9 @@ function Transcript({ markdown, status }: { markdown: string; status: string }) 
       ) : (
         <p className="text-sm leading-6 text-muted-foreground">
           {status === 'failed'
-            ? 'Import captions below, or retry when the source is available.'
+            ? 'Retry when the source is available, or add a transcript with Edit record.'
             : status === 'ready'
-              ? 'This source has no captions. You can import a caption file or write a transcript with Edit record.'
+              ? 'This source has no captions. You can write a transcript with Edit record.'
               : 'Looking for captions from the original source…'}
         </p>
       )}
@@ -328,59 +325,5 @@ function RecordEditor({ record, onClose }: { record: RecordView; onClose: () => 
       </form.Field>
       <ErrorNotice error={save.error} />
     </form>
-  );
-}
-
-function CaptionImport({ id, hasTranscript }: { id: string; hasTranscript: boolean }) {
-  const queryClient = useQueryClient();
-  const upload = useMutation({
-    mutationFn: async (file: File) => {
-      if (file.size > 1800000) {
-        throw new Error('Choose a caption file smaller than 1.8 MB.');
-      }
-      const content = await file.text();
-      const extension = file.name.split('.').at(-1)?.toLowerCase();
-      const body = extension === 'json' ? JSON.parse(content) : { content, format: extension };
-      return unwrap(await api.records({ id }).captions.post(body));
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['records'] }),
-  });
-  return (
-    <section className="mt-8 border-t border-border pt-6">
-      <details>
-        <summary className="cursor-pointer text-sm font-medium">
-          {hasTranscript ? 'Replace captions' : 'Import captions'}
-        </summary>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Choose a JSON3, VTT, or SRT caption file, or a Content Use caption bundle.{' '}
-          {hasTranscript && 'Importing replaces the current transcript.'}
-        </p>
-        <Input
-          className="mt-4"
-          type="file"
-          aria-label="Caption file"
-          accept=".json3,.vtt,.srt,.json"
-          disabled={upload.isPending}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) {
-              upload.mutate(file);
-            }
-            event.target.value = '';
-          }}
-        />
-        {upload.isPending && (
-          <p role="status" className="mt-3 text-sm">
-            Importing captions…
-          </p>
-        )}
-        <ErrorNotice error={upload.error} />
-        {upload.isSuccess && (
-          <p role="status" className="mt-3 text-sm">
-            Captions imported.
-          </p>
-        )}
-      </details>
-    </section>
   );
 }

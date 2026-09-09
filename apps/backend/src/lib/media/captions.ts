@@ -59,7 +59,7 @@ function readCues(content: string, format: 'json3' | 'vtt' | 'srt'): Cue[] {
     }
     return cues;
   } catch {
-    throw new DomainError('This caption file is invalid. Choose a yt-dlp JSON3, VTT, or SRT file.');
+    throw new DomainError('The source returned invalid captions.');
   }
 }
 function captionParagraphs(cues: Cue[], rolling: boolean): string {

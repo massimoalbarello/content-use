@@ -55,47 +55,6 @@ test('queue claims once, recovers interrupted work, and keeps transcript checkpo
   }
 });
 
-test('caption imports preserve media and custom titles, reject active jobs and cross-owner writes', async () => {
-  const db = await testDatabase();
-  const repo = new SqliteRecordsRepository(db);
-  try {
-    const record = await repo.create({
-      ownerId: 'alice',
-      id: 'import',
-      title: 'My title',
-      url: 'https://example.com/video',
-    });
-    expect(
-      await repo.importCaptions({ ownerId: record.ownerId, id: record.id, markdown: 'Too soon' }),
-    ).toBeNull();
-    await repo.media({
-      ...record,
-      title: 'Source title',
-      name: 'media.mp4',
-      type: 'video',
-      duration: 10,
-    });
-    await repo.progress({ ...record, status: 'failed', progress: 'Blocked', error: 'Blocked' });
-    expect(
-      await repo.importCaptions({ id: record.id, ownerId: 'bob', markdown: 'Stolen' }),
-    ).toBeNull();
-    const result = await repo.importCaptions({
-      ...record,
-      markdown: 'Imported words',
-      title: 'New source title',
-      duration: 11,
-    });
-    expect(result?.title).toBe('My title');
-    expect(result?.mediaName).toBe('media.mp4');
-    expect(result?.markdown).toBe('Imported words');
-    expect(result?.status).toBe('ready');
-    expect(result?.error).toBeNull();
-    expect(result?.duration).toBe(11);
-  } finally {
-    await db.close();
-  }
-});
-
 test('status and playlist filters compose before pagination, with owner-scoped membership links', async () => {
   const db = await testDatabase();
   const repo = new SqliteRecordsRepository(db);

@@ -15,11 +15,3 @@ export const ListRecords = t.Object({
   search: t.Optional(t.String({ maxLength: 200 })),
   offset: t.Optional(t.Numeric({ minimum: 0, maximum: 1000000, multipleOf: 1 })),
 });
-
-export const ImportCaptions = t.Object({
-  content: t.String({ minLength: 1, maxLength: 1800000 }),
-  format: t.Union([t.Literal('json3'), t.Literal('vtt'), t.Literal('srt')]),
-  sourceUrl: t.Optional(t.String({ maxLength: 4096 })),
-  title: t.Optional(t.String({ minLength: 1, maxLength: 300 })),
-  duration: t.Optional(t.Number({ minimum: 0, maximum: 10800 })),
-});
