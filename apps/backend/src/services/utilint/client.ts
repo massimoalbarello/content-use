@@ -82,7 +82,7 @@ export function createUtilintClient({
           headers: { accept: 'application/json' },
         },
       );
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error('Client status unavailable');
       }
       const result = (await response.json()) as { clientId?: unknown; status?: unknown };

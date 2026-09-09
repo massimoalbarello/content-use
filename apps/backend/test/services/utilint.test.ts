@@ -38,7 +38,10 @@ async function fixture() {
       throw new Error('Network unavailable');
     }
     if (typeof state.statusError === 'number') {
-      return new Response(null, { status: state.statusError });
+      return Response.json(
+        { clientId: new URL(target).pathname.split('/').at(-2), status: 'missing' },
+        { status: state.statusError },
+      );
     }
     if (state.statusError === 'malformed-status') {
       return Response.json({
@@ -495,6 +498,9 @@ test('unavailable, malformed, or disabled client status never replaces registrat
     await f.client.get();
     const encrypted = await f.repository.readClient();
     for (const error of [
+      201,
+      202,
+      206,
       404,
       401,
       429,
