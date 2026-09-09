@@ -7,6 +7,7 @@ CREATE TABLE records (
  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE INDEX records_owner_created ON records(owner_id, created_at DESC);
+CREATE INDEX records_owner_url ON records(owner_id,url);
 CREATE INDEX records_status ON records(status, created_at);
 CREATE TABLE transcript_chunks (
  record_id TEXT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
