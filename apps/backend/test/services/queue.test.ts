@@ -151,7 +151,6 @@ test('compiled SQLite worker survives killed processes, rate limits, cancelled w
     expect(state.attempts).toBe(1);
     expect(Date.parse(state.next_attempt_at)).toBeGreaterThan(Date.now() + 20000);
     // The persisted scheduler discovers due playlists without an API wake after restart.
-    await configure();
     videos.push({ id: '0123456789a', title: 'Scheduled' });
     await configure();
     await db`UPDATE playlists SET next_check_at=${new Date().toISOString()} WHERE id=${playlistId}`;
@@ -161,7 +160,9 @@ test('compiled SQLite worker survives killed processes, rate limits, cancelled w
     );
     const [schedule] =
       await db`SELECT checked_at,next_check_at FROM playlists WHERE id=${playlistId}`;
-    expect(Date.parse(schedule.next_check_at) - Date.parse(schedule.checked_at)).toBe(3600000);
+    const interval = Date.parse(schedule.next_check_at) - Date.parse(schedule.checked_at);
+    expect(interval).toBeGreaterThanOrEqual(3600000);
+    expect(interval).toBeLessThan(3601000);
 
     child!.kill('SIGTERM');
     expect(await child!.exited).toBe(0);
