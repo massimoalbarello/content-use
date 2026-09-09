@@ -44,14 +44,14 @@ export function createUtilintClient({
 }) {
   const origin = providerOrigin(utilintOrigin ?? defaultOrigin);
   let pending: Promise<ClientConfig> | undefined;
-  async function read(): Promise<ClientConfig | null> {
+  async function snapshot(): Promise<{ config: ClientConfig; encrypted: string | null } | null> {
     const encrypted = await repository.readClient();
     if (encrypted) {
       const config = vault.open<RegisteredClient>(clientKey, encrypted);
       if (config.callback !== callback || (utilintOrigin && config.origin !== origin)) {
         throw new DomainError('The host needs to update the Utilint app configuration.', 503);
       }
-      return config;
+      return { config, encrypted };
     }
     // Read compatibility for the deployed private workspace's original app registration.
     // Its credentials and user grants are retained; no data backfill runs at startup.
@@ -65,19 +65,63 @@ export function createUtilintClient({
       if (utilintOrigin && config.origin !== origin) {
         throw new DomainError('The host needs to update the Utilint app configuration.', 503);
       }
-      return config;
+      return { config, encrypted: null };
     }
     return null;
   }
-  async function register(): Promise<ClientConfig> {
-    const saved = await read();
-    if (saved) {
-      return saved;
+  async function read() {
+    return (await snapshot())?.config ?? null;
+  }
+  async function registrationStatus(config: ClientConfig) {
+    try {
+      const response = await transport(
+        `${config.origin}/api/connect/clients/${encodeURIComponent(config.clientId)}/status`,
+        {
+          redirect: 'error',
+          signal: AbortSignal.timeout(10000),
+          headers: { accept: 'application/json' },
+        },
+      );
+      if (!response.ok) {
+        throw new Error('Client status unavailable');
+      }
+      const result = (await response.json()) as { clientId?: unknown; status?: unknown };
+      if (
+        result.clientId !== config.clientId ||
+        typeof result.status !== 'string' ||
+        !['active', 'missing', 'disabled'].includes(result.status)
+      ) {
+        throw new Error('Invalid client status');
+      }
+      return result.status as 'active' | 'missing' | 'disabled';
+    } catch {
+      throw new DomainError(
+        'Could not verify the Utilint connection. Please try again shortly.',
+        502,
+      );
     }
+  }
+  async function ensureRegistered(): Promise<ClientConfig> {
+    const saved = await snapshot();
+    if (saved) {
+      const status = await registrationStatus(saved.config);
+      if (status === 'active') {
+        return saved.config;
+      }
+      if (status === 'disabled') {
+        throw new DomainError('This app has been disabled on Utilint. Contact the app host.', 403);
+      }
+    }
+    return register(saved?.config.origin ?? origin, saved?.encrypted ?? null);
+  }
+  async function register(
+    registrationOrigin: string,
+    expected: string | null,
+  ): Promise<ClientConfig> {
     try {
       const server: oauth.AuthorizationServer = {
-        issuer: `${origin}/api/auth`,
-        registration_endpoint: `${origin}/api/auth/oauth2/register`,
+        issuer: `${registrationOrigin}/api/auth`,
+        registration_endpoint: `${registrationOrigin}/api/auth/oauth2/register`,
       };
       const response = await oauth.dynamicClientRegistrationRequest(
         server,
@@ -94,7 +138,9 @@ export function createUtilintClient({
         },
         {
           [oauth.customFetch]: transport,
-          ...(new URL(origin).protocol === 'http:' ? { [oauth.allowInsecureRequests]: true } : {}),
+          ...(new URL(registrationOrigin).protocol === 'http:'
+            ? { [oauth.allowInsecureRequests]: true }
+            : {}),
           signal: AbortSignal.timeout(20000),
         },
       );
@@ -110,13 +156,13 @@ export function createUtilintClient({
         throw new Error('Incomplete registration');
       }
       const config: RegisteredClient = {
-        origin,
+        origin: registrationOrigin,
         callback,
         clientId: result.client_id,
         clientSecret: result.client_secret,
       };
-      // Insert-only: another process must never replace this deployment's active client.
-      await repository.saveClientIfAbsent(vault.seal(clientKey, config));
+      // Replace only the exact version checked above; keep concurrent repairs and old tokens isolated.
+      await repository.saveClient(vault.seal(clientKey, config), expected);
       return (await read())!;
     } catch {
       throw new DomainError('Could not connect to Utilint. Please try again shortly.', 502);
@@ -126,7 +172,7 @@ export function createUtilintClient({
     origin,
     read,
     get() {
-      pending ??= register().finally(() => {
+      pending ??= ensureRegistered().finally(() => {
         pending = undefined;
       });
       return pending;

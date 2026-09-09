@@ -14,6 +14,16 @@ async function fixture() {
   const state = {
     now: Date.now(),
     registrations: 0,
+    clients: new Set<string>(),
+    disabled: false,
+    statusError: null as
+      | null
+      | number
+      | 'network'
+      | 'malformed'
+      | 'malformed-status'
+      | 'wrong-client',
+    registrationError: false,
     exchanges: 0,
     refreshes: 0,
     calls: 0,
@@ -21,40 +31,82 @@ async function fixture() {
     badScope: false,
     onGenerate: async () => {},
   };
+  function statusResponse(target: string, init?: RequestInit) {
+    expect(init?.redirect).toBe('error');
+    expect(new Headers(init?.headers).has('authorization')).toBe(false);
+    if (state.statusError === 'network') {
+      throw new Error('Network unavailable');
+    }
+    if (typeof state.statusError === 'number') {
+      return new Response(null, { status: state.statusError });
+    }
+    if (state.statusError === 'malformed-status') {
+      return Response.json({
+        clientId: new URL(target).pathname.split('/').at(-2),
+        status: ['missing'],
+      });
+    }
+    if (state.statusError === 'malformed') {
+      return Response.json({ error: 'not_found' });
+    }
+    const clientId = new URL(target).pathname.split('/').at(-2);
+    const available = state.clients.has(clientId ?? '') ? 'active' : 'missing';
+    return Response.json({
+      clientId: state.statusError === 'wrong-client' ? 'different' : clientId,
+      status: state.disabled ? 'disabled' : available,
+    });
+  }
+  function registrationResponse(init?: RequestInit) {
+    state.registrations++;
+    if (state.registrationError) {
+      return Response.json({ error: 'temporarily_unavailable' }, { status: 503 });
+    }
+    const clientId = state.registrations === 1 ? 'client' : `client-${state.registrations}`;
+    state.clients.add(clientId);
+    return Response.json(
+      {
+        ...JSON.parse(String(init?.body)),
+        client_id: clientId,
+        client_secret: 'client-secret',
+        client_secret_expires_at: 0,
+      },
+      { status: 201 },
+    );
+  }
+  function tokenResponse(init?: RequestInit) {
+    expect(
+      atob(new Headers(init?.headers).get('authorization')!.slice(6))
+        .split(':')
+        .map(decodeURIComponent),
+    ).toEqual([
+      state.registrations === 1 ? 'client' : `client-${state.registrations}`,
+      'client-secret',
+    ]);
+    const body = new URLSearchParams(String(init?.body));
+    if (body.get('grant_type') === 'refresh_token') {
+      state.refreshes++;
+    } else {
+      state.exchanges++;
+      expect(body.get('code_verifier')?.length).toBeGreaterThanOrEqual(43);
+    }
+    return Response.json({
+      access_token: `private-access-${state.refreshes}`,
+      refresh_token: `private-refresh-${state.refreshes}`,
+      expires_in: 900,
+      token_type: 'Bearer',
+      scope: state.badScope ? 'profile' : 'profile ai:invoke',
+    });
+  }
   const external = (async (url, init) => {
     const target = String(url);
+    if (target.startsWith('https://utilint.example/api/connect/clients/')) {
+      return statusResponse(target, init);
+    }
     if (target === 'https://utilint.example/api/auth/oauth2/register') {
-      state.registrations++;
-      return Response.json(
-        {
-          ...JSON.parse(String(init?.body)),
-          client_id: 'client',
-          client_secret: 'client-secret',
-          client_secret_expires_at: 0,
-        },
-        { status: 201 },
-      );
+      return registrationResponse(init);
     }
     if (target === 'https://utilint.example/api/auth/oauth2/token') {
-      expect(
-        atob(new Headers(init?.headers).get('authorization')!.slice(6))
-          .split(':')
-          .map(decodeURIComponent),
-      ).toEqual(['client', 'client-secret']);
-      const body = new URLSearchParams(String(init?.body));
-      if (body.get('grant_type') === 'refresh_token') {
-        state.refreshes++;
-      } else {
-        state.exchanges++;
-        expect(body.get('code_verifier')?.length).toBeGreaterThanOrEqual(43);
-      }
-      return Response.json({
-        access_token: `private-access-${state.refreshes}`,
-        refresh_token: `private-refresh-${state.refreshes}`,
-        expires_in: 900,
-        token_type: 'Bearer',
-        scope: state.badScope ? 'profile' : 'profile ai:invoke',
-      });
+      return tokenResponse(init);
     }
     expect(target.startsWith('https://utilint.example/v1/')).toBe(true);
     expect(init?.redirect).toBe('error');
@@ -103,7 +155,7 @@ async function fixture() {
     }).toString();
     return callback;
   }
-  return { db, repository, records, vault, client, service, state, actor, begin };
+  return { db, repository, records, vault, client, service, state, actor, begin, external };
 }
 
 test('OAuth callback binds state to owner/session, enforces expiry, issuer, scope and single use', async () => {
@@ -243,10 +295,10 @@ test('one deployment registration serves separate users and survives restart and
       vault: f.vault,
       callback: 'https://content.example/api/utilint/callback',
       utilintOrigin: 'https://utilint.example',
-      transport: ((_url: Parameters<typeof fetch>[0]) =>
-        Promise.reject(new Error('Must reuse registration'))) as typeof fetch,
+      transport: f.external,
     });
     expect((await restarted.get()).clientId).toBe('client');
+    expect(f.state.registrations).toBe(1);
     expect(await f.db`SELECT id FROM utilint_client`).toHaveLength(1);
     expect(await f.db`SELECT owner_id FROM utilint_secrets WHERE kind='client'`).toHaveLength(0);
   } finally {
@@ -275,6 +327,7 @@ test('existing app credentials and legacy user tokens remain usable without regi
       vault: f.vault,
       callback: 'https://content.example/api/utilint/callback',
       legacyOwnerId: 'alice',
+      transport: f.external,
     });
     const service = createUtilintService({
       client,
@@ -283,6 +336,7 @@ test('existing app credentials and legacy user tokens remain usable without regi
       vault: f.vault,
       origin: 'https://content.example',
     });
+    f.state.clients.add('original-client');
     expect(await client.get()).toEqual(config);
     expect((await service.status('alice')).connected).toBe(true);
     expect((await service.status('bob')).connected).toBe(false);
@@ -357,6 +411,130 @@ test('failed dynamic registration stores nothing and a subsequent user action ca
     expect(await f.repository.readClient()).toBeNull();
     fail = false;
     expect((await client.get()).clientId).toBe('recovered');
+  } finally {
+    await f.db.close();
+  }
+});
+
+test('deleted registration is replaced once; old user tokens and pending codes cannot cross to the replacement', async () => {
+  const f = await fixture();
+  try {
+    await f.service.complete(f.actor, await f.begin());
+    const saved = await f.service.generate({ ownerId: 'alice', id: 'rec-test' });
+    const bob = { ownerId: 'bob', sessionId: 'session-b' };
+    const pending = await f.service.begin(bob);
+    const oldCallback = new URL('https://content.example/api/utilint/callback');
+    oldCallback.search = new URLSearchParams({
+      state: new URL(pending.url).searchParams.get('state') ?? '',
+      code: 'old-code',
+      iss: 'https://utilint.example/api/auth',
+    }).toString();
+    const oldEncrypted = await f.repository.readClient();
+    f.state.clients.clear();
+    const [repaired, shared] = await Promise.all([f.client.get(), f.client.get()]);
+    expect(repaired.clientId).toBe('client-2');
+    expect(shared.clientId).toBe(repaired.clientId);
+    expect(f.state.registrations).toBe(2);
+    expect(await f.repository.readClient()).not.toBe(oldEncrypted);
+    expect((await f.service.status('alice')).connected).toBe(false);
+    await expect(f.service.complete(bob, oldCallback)).rejects.toThrow('Connect utilint');
+    expect(f.state.exchanges).toBe(1);
+    expect((await f.service.generate({ ownerId: 'alice', id: 'rec-test' })).summary).toEqual(
+      saved.summary,
+    );
+    expect(f.state.calls).toBe(1);
+    await f.service.complete(f.actor, await f.begin());
+    expect((await f.service.status('alice')).connected).toBe(true);
+    expect(f.state.registrations).toBe(2);
+    const restarted = createUtilintClient({
+      repository: f.repository,
+      vault: f.vault,
+      callback: 'https://content.example/api/utilint/callback',
+      transport: f.external,
+    });
+    expect((await restarted.get()).clientId).toBe('client-2');
+    expect(f.state.registrations).toBe(2);
+  } finally {
+    await f.db.close();
+  }
+});
+
+test('deleted legacy developer registration is replaced without modifying private workspace data', async () => {
+  const f = await fixture();
+  try {
+    const legacy = {
+      origin: 'https://utilint.example',
+      clientId: 'deleted-manual-app',
+      clientSecret: 'old-secret',
+    };
+    const encrypted = f.vault.seal('alice:client', legacy);
+    await f.repository.write('alice', 'client', encrypted);
+    const client = createUtilintClient({
+      repository: f.repository,
+      vault: f.vault,
+      callback: 'https://content.example/api/utilint/callback',
+      legacyOwnerId: 'alice',
+      transport: f.external,
+    });
+    expect((await client.get()).clientId).toBe('client');
+    expect(await f.repository.readClient()).not.toBeNull();
+    expect(await f.repository.read('alice', 'client')).toBe(encrypted);
+    expect((await f.records.get({ ownerId: 'alice', id: 'rec-test' }))?.markdown).toBe(
+      'Transcript source',
+    );
+    expect((await client.get()).clientId).toBe('client');
+    expect(f.state.registrations).toBe(1);
+  } finally {
+    await f.db.close();
+  }
+});
+
+test('unavailable, malformed, or disabled client status never replaces registration; failed repair is retryable', async () => {
+  const f = await fixture();
+  try {
+    await f.client.get();
+    const encrypted = await f.repository.readClient();
+    for (const error of [
+      404,
+      401,
+      429,
+      500,
+      'network',
+      'malformed',
+      'malformed-status',
+      'wrong-client',
+    ] as const) {
+      f.state.statusError = error;
+      await expect(f.client.get()).rejects.toThrow('Could not verify');
+      expect(await f.repository.readClient()).toBe(encrypted);
+      expect(f.state.registrations).toBe(1);
+    }
+    f.state.statusError = null;
+    f.state.disabled = true;
+    await expect(f.client.get()).rejects.toThrow('disabled');
+    expect(f.state.registrations).toBe(1);
+    f.state.disabled = false;
+    f.state.clients.clear();
+    f.state.registrationError = true;
+    await expect(f.client.get()).rejects.toThrow('Could not connect');
+    expect(await f.repository.readClient()).toBe(encrypted);
+    f.state.registrationError = false;
+    expect((await f.client.get()).clientId).toBe('client-3');
+    expect(f.state.registrations).toBe(3);
+  } finally {
+    await f.db.close();
+  }
+});
+
+test('a stale repair cannot overwrite a newer persisted client', async () => {
+  const f = await fixture();
+  try {
+    await f.repository.saveClient('first', null);
+    await f.repository.saveClient('second', 'first');
+    await f.repository.saveClient('stale', 'first');
+    await f.repository.saveClient('stale-initial', null);
+    expect(await f.repository.readClient()).toBe('second');
+    expect(await f.db`SELECT id FROM utilint_client`).toHaveLength(1);
   } finally {
     await f.db.close();
   }

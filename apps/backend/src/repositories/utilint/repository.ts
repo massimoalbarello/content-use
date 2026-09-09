@@ -3,7 +3,7 @@ export type SecretKind = 'client' | 'tokens';
 export type Summary = { text: string; model: string; createdAt: string };
 export interface UtilintRepository {
   readClient(): Promise<string | null>;
-  saveClientIfAbsent(encrypted: string): Promise<void>;
+  saveClient(encrypted: string, expected: string | null): Promise<void>;
   read(ownerId: string, kind: SecretKind): Promise<string | null>;
   write(ownerId: string, kind: SecretKind, encrypted: string): Promise<void>;
   remove(ownerId: string, kind: SecretKind): Promise<void>;
@@ -16,9 +16,14 @@ export class SqliteUtilintRepository implements UtilintRepository {
     const [row] = await this.db`SELECT encrypted FROM utilint_client WHERE id=1`;
     return row?.encrypted ?? null;
   }
-  async saveClientIfAbsent(encrypted: string) {
-    await this
-      .db`INSERT INTO utilint_client(id,encrypted) VALUES(1,${encrypted}) ON CONFLICT(id) DO NOTHING`;
+  async saveClient(encrypted: string, expected: string | null) {
+    if (expected === null) {
+      await this
+        .db`INSERT INTO utilint_client(id,encrypted) VALUES(1,${encrypted}) ON CONFLICT(id) DO NOTHING`;
+    } else {
+      await this
+        .db`UPDATE utilint_client SET encrypted=${encrypted} WHERE id=1 AND encrypted=${expected}`;
+    }
   }
   async read(ownerId: string, kind: SecretKind) {
     const [row] = await this

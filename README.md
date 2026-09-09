@@ -50,8 +50,12 @@ installations retain their original client and connections.
 
 The host can set `UTILINT_URL` to another Utilint origin (HTTPS, or HTTP localhost for development).
 It defaults to `https://utilint-crrxrd.nibrun.app`. Keep the deployment's public URL and persistent
-data directory stable. Registration is reused across users, reconnects, and restarts; disconnecting
-only removes that user's tokens. This remains a private workspace owned by its first passkey user.
+data directory stable. Registration is checked before each connection and reused across users, reconnects, and restarts.
+If the saved client was deleted on Utilint, the backend registers a replacement automatically and
+asks for fresh consent. Temporary failures and disabled clients do not trigger replacement. Old
+tokens and pending attempts cannot be used with the replacement. Start again from Connect utilint
+in Content Use after deleting a client; an old consent URL identifies the deleted registration.
+Disconnecting only removes that user's tokens. This remains a private workspace owned by its first passkey user.
 The OAuth client belongs to the deployment independently of the user, and each user's tokens,
 state, PKCE verifier, and summaries remain scoped to that user.
 
