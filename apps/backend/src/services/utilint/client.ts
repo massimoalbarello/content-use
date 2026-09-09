@@ -6,7 +6,7 @@ import type { UtilintRepository } from '#repositories/utilint/repository.ts';
 export type ClientConfig = { origin: string; clientId: string; clientSecret: string };
 type RegisteredClient = ClientConfig & { callback: string };
 const clientKey = 'utilint:deployment-client';
-const defaultOrigin = 'https://utilint-crrxrd.nibrun.app';
+const defaultOrigin = 'https://utilint.com';
 
 function providerOrigin(input: string) {
   const url = new URL(input);

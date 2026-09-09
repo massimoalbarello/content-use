@@ -49,7 +49,7 @@ deployment. No developer account, client ID, or secret is needed from the user. 
 installations retain their original client and connections.
 
 The host can set `UTILINT_URL` to another Utilint origin (HTTPS, or HTTP localhost for development).
-It defaults to `https://utilint-crrxrd.nibrun.app`. Keep the deployment's public URL and persistent
+It defaults to `https://utilint.com`. Keep the deployment's public URL and persistent
 data directory stable. Registration is checked before each connection and reused across users, reconnects, and restarts.
 If the saved client was deleted on Utilint, the backend registers a replacement automatically and
 asks for fresh consent. Temporary failures and disabled clients do not trigger replacement. Old
