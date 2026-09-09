@@ -4,19 +4,18 @@
 
 A private video and transcript library. Paste a public audio/video URL or YouTube playlist to
 create searchable Markdown records with embedded playback and source captions. Playlists sync
-hourly; DBOS handles retries and caption rate limits. Sign in with a passkey to manage your records.
+hourly; bunqueue handles durable jobs and retries. Sign in with a passkey to manage your records.
 
 Built using [Context Use](https://github.com/massimoalbarello/context-use) as the reference for
 passkeys, repository structure, and engineering guidelines.
 
 ## Run locally
 
-Install Bun (see `.bun-version`), PostgreSQL, yt-dlp, and FFmpeg. Start PostgreSQL, then:
+Install Bun (see `.bun-version`), yt-dlp, and FFmpeg, then:
 
 ```sh
 bun install --frozen-lockfile
 cp apps/backend/.env.example apps/backend/.env
-# Set DBOS_SYSTEM_DATABASE_URL for your PostgreSQL instance.
 bun run dev
 ```
 

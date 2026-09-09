@@ -3,7 +3,7 @@ import { SqliteJobsRepository } from '../../src/repositories/jobs/repository';
 import { SqliteRecordsRepository } from '../../src/repositories/records/repository';
 import { testDatabase } from '../support/database';
 
-test('dispatch acknowledgement does not lose a newer retry or repeatedly enqueue a backlog', async () => {
+test('pending reconciliation preserves deadlines and rejects stale generations and other owners', async () => {
   const db = await testDatabase();
   const jobs = new SqliteJobsRepository(db);
   const records = new SqliteRecordsRepository(db);
@@ -15,16 +15,25 @@ test('dispatch acknowledgement does not lose a newer retry or repeatedly enqueue
       url: 'https://youtu.be/rY0wnfFHYbs',
     });
     const original = (await jobs.pending())[0]!;
-    await jobs.acknowledge(original);
-    expect(await jobs.pending()).toHaveLength(0);
+    // Existing dispatch markers must not strand work when switching queue engines.
+    await db`UPDATE records SET enqueued_generation=job_generation WHERE id=${record.id}`;
+    expect(await jobs.pending()).toHaveLength(1);
+    const retryAt = Date.now() + 3600000;
+    await jobs.waiting({ ...original, retryAt, attempts: 2, error: 'Try later' });
+    expect(await jobs.current(original)).toEqual({
+      attempts: 2,
+      nextAttemptAt: new Date(retryAt).toISOString(),
+    });
+    expect(await jobs.current({ ...original, ownerId: 'bob' })).toBeNull();
     await records.progress({ ...record, status: 'failed', progress: 'Failed' });
+    expect(await jobs.pending()).toHaveLength(0);
     await records.retry(record);
-    await jobs.acknowledge(original);
+    await jobs.waiting({ ...original, retryAt, attempts: 8, error: 'Stale' });
     const retry = (await jobs.pending())[0]!;
     expect(retry.generation).toBe(1);
     expect(await jobs.current(original)).toBeNull();
+    expect(await jobs.current(retry)).toMatchObject({ attempts: 0 });
     await records.remove(record);
-    await jobs.acknowledge(retry);
     expect(await jobs.pending()).toHaveLength(0);
   } finally {
     await db.close();

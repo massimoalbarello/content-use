@@ -3,7 +3,6 @@ import { createApp } from './app';
 import { assets } from './assets.gen';
 import { createSqliteDatabase } from './db/client';
 import { migrate } from './db/migrate';
-import { startWorkflowDatabase } from './db/postgres';
 import { loadAuthSecret } from './lib/auth/auth-secret';
 import { createAuth } from './lib/auth/better-auth';
 import { HostedCaptions } from './lib/media/hosted-captions';
@@ -26,10 +25,6 @@ const port = Number(process.env.PORT ?? 3000);
 const origin = process.env.NIBRUN_HOSTNAME
   ? `https://${process.env.NIBRUN_HOSTNAME}`
   : (process.env.BASE_URL ?? 'http://localhost:5173');
-const workflowDatabase = await startWorkflowDatabase(
-  dataFolder,
-  process.env.DBOS_SYSTEM_DATABASE_URL,
-);
 const database = await createSqliteDatabase({ dataFolder });
 await migrate(database);
 const secret = await loadAuthSecret({
@@ -64,7 +59,7 @@ void pipeline
       error instanceof Error ? error.message : 'Unknown error',
     ),
   );
-await jobs.start(workflowDatabase.url);
+await jobs.start(dataFolder);
 const app = createApp({ auth, records, registration, playlists, origin, assets }).listen({
   hostname: '0.0.0.0',
   port,
@@ -80,7 +75,6 @@ async function shutdown() {
   await jobs.stop();
   await app.stop();
   await database.close();
-  await workflowDatabase.stop();
   process.exit(0);
 }
 process.on('SIGTERM', () => {

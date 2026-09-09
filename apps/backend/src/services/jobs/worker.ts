@@ -1,4 +1,6 @@
-import { DBOS } from '@dbos-inc/dbos-sdk';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { type Job, Queue, shutdownManager, Worker } from 'bunqueue/client';
 import { CaptionServiceError } from '#lib/media/hosted-captions.ts';
 import type { YoutubePlaylists } from '#lib/media/playlists.ts';
 import { type Actor, youtubeEmbed } from '#models/records.ts';
@@ -6,138 +8,86 @@ import type { JobsRepository, RecordJob } from '#repositories/jobs/repository.ts
 import type { PlaylistsRepository } from '#repositories/playlists/repository.ts';
 import type { RecordsRepository } from '#repositories/records/repository.ts';
 import type { RecordProcessor } from './processor';
+
+type PlaylistJob = Actor & { id: string; url: string; nextCheckAt: string };
+const options = {
+  durable: true,
+  removeOnComplete: true,
+  removeOnFail: true,
+  attempts: 3,
+  backoff: { type: 'exponential' as const, delay: 1000 },
+};
+
 export class JobWorker {
-  private stopped = false;
+  private stopped = true;
   private waking: Promise<void> | undefined;
-  private readonly recordWorkflow;
-  private readonly playlistWorkflow;
-  private readonly dispatchWorkflow;
+  private transcripts!: Queue<RecordJob>;
+  private media!: Queue<RecordJob>;
+  private discovery!: Queue<PlaylistJob>;
+  private dispatch!: Queue<null>;
+  private workers: (Worker<RecordJob> | Worker<PlaylistJob> | Worker<null>)[] = [];
+  private readonly polling = new Set<AbortController>();
+
   constructor(
     private readonly records: RecordsRepository,
     private readonly jobs: JobsRepository,
     private readonly processor: RecordProcessor,
     private readonly playlists: PlaylistsRepository,
     private readonly source: Pick<YoutubePlaylists, 'list'>,
-  ) {
-    this.recordWorkflow = DBOS.registerWorkflow(
-      async (job: RecordJob) => {
-        while (true) {
-          let delay: number | null;
-          try {
-            delay = await DBOS.runStep(() => this.attempt(job), {
-              name: 'process-record',
-              retriesAllowed: true,
-              maxAttempts: 3,
-              intervalSeconds: 5,
-            });
-          } catch (error) {
-            if (this.stopped) {
-              throw error;
-            }
-            await DBOS.runStep(
-              () =>
-                this.records.progress({
-                  ...job,
-                  status: 'failed',
-                  progress: 'Needs attention',
-                  error: message(error),
-                }),
-              { name: 'record-workflow-failure' },
-            );
-            return;
-          }
-          if (delay === null) {
-            return;
-          }
-          await DBOS.sleep(delay);
-        }
-      },
-      { name: 'record-transcript-v1' },
-    );
-    this.playlistWorkflow = DBOS.registerWorkflow(
-      async (input: Actor & { id: string; url: string }) => {
-        try {
-          await DBOS.runStep(
-            async () => {
-              const pollId = DBOS.workflowID!;
-              if (!(await this.playlists.beginPoll({ ...input, pollId }))) {
-                return;
-              }
-              const result = await this.source.list(input.url, AbortSignal.timeout(5 * 60000));
-              await this.playlists.sync({ ...input, ...result, pollId });
-            },
-            {
-              name: 'discover-playlist',
-              retriesAllowed: true,
-              maxAttempts: 3,
-              intervalSeconds: 30,
-              backoffRate: 2,
-            },
-          );
-        } catch (error) {
-          await DBOS.runStep(
-            () =>
-              this.playlists.failure({ ...input, error: message(error), pollId: DBOS.workflowID! }),
-            {
-              name: 'record-playlist-error',
-            },
-          );
-        }
-        await this.dispatchRecords();
-      },
-      { name: 'playlist-discovery-v1' },
-    );
-    this.dispatchWorkflow = DBOS.registerWorkflow(
-      async (_time: Date, _context: unknown) => {
-        const due = await DBOS.runStep(() => this.playlists.due(), { name: 'due-playlists' });
-        for (const playlist of due) {
-          await DBOS.startWorkflow(this.playlistWorkflow, {
-            queueName: 'playlists',
-            workflowID: `playlist:${playlist.id}:${playlist.nextCheckAt}`,
-          })(playlist);
-        }
-        await this.dispatchRecords();
-      },
-      { name: 'library-dispatch-v1' },
-    );
-  }
-  async start(databaseUrl: string) {
-    DBOS.setConfig({
-      name: 'content-use',
-      applicationVersion: 'playlists-v1',
-      systemDatabaseUrl: databaseUrl,
-      systemDatabasePoolSize: 4,
-      executorID: 'nibrun-content-use',
-      enableOTLP: false,
+  ) {}
+
+  async start(dataFolder: string) {
+    await mkdir(dataFolder, { recursive: true });
+    const connection = { embedded: true, dataPath: join(dataFolder, 'jobs.sqlite') };
+    const queueOptions = { ...connection, defaultJobOptions: options };
+    this.transcripts = new Queue('transcripts', queueOptions);
+    this.media = new Queue('media', queueOptions);
+    this.discovery = new Queue('playlists', {
+      ...queueOptions,
+      defaultJobOptions: { ...options, backoff: { type: 'exponential', delay: 30000 } },
     });
-    await DBOS.launch();
-    await DBOS.registerQueue('transcripts', { globalConcurrency: 4, workerConcurrency: 4 });
-    await DBOS.registerQueue('media', { globalConcurrency: 1 });
-    await DBOS.registerQueue('playlists', { globalConcurrency: 1 });
-    await DBOS.registerQueue('dispatch', { globalConcurrency: 1 });
-    // A durable minute tick discovers playlists whose own hourly deadline is due, and
-    // reconciles record writes committed immediately before an interrupted enqueue.
-    await DBOS.applySchedules([
-      {
-        scheduleName: 'library-dispatch',
-        workflowFn: this.dispatchWorkflow,
-        schedule: '* * * * *',
-        context: null,
-        queueName: 'dispatch',
-      },
-    ]);
+    this.dispatch = new Queue('dispatch', queueOptions);
+    this.stopped = false;
+    this.workers = [
+      new Worker<RecordJob>('transcripts', (job) => this.processRecord(job), {
+        ...connection,
+        concurrency: 4,
+      }),
+      new Worker<RecordJob>('media', (job) => this.processRecord(job), connection),
+      new Worker<PlaylistJob>('playlists', (job) => this.pollPlaylist(job), connection),
+      new Worker<null>('dispatch', () => this.reconcile(), connection),
+    ];
+    for (const worker of this.workers) {
+      worker.on('error', (error) => console.error('Job queue error:', message(error)));
+    }
+    // Playlist deadlines remain hourly. A minute tick also recovers record writes
+    // committed before queue submission, including work from older deployments.
+    await this.dispatch.upsertJobScheduler(
+      'library-dispatch',
+      { every: 60000, preventOverlap: true },
+      { name: 'reconcile', data: null, opts: options },
+    );
     this.wake();
   }
-  private async dispatchRecords() {
+
+  private async reconcile() {
+    for (const playlist of await this.playlists.due()) {
+      if (this.stopped) {
+        return;
+      }
+      await this.discovery.add('discover', playlist, {
+        jobId: `playlist:${playlist.id}:${playlist.nextCheckAt}`,
+      });
+    }
     let after = '';
-    while (true) {
-      const batch = await DBOS.runStep(() => this.jobs.pending(after), { name: 'pending-records' });
+    while (!this.stopped) {
+      const batch = await this.jobs.pending(after);
       for (const job of batch) {
-        await DBOS.startWorkflow(this.recordWorkflow, {
-          queueName: youtubeEmbed(job.url) ? 'transcripts' : 'media',
-          workflowID: `record:${job.id}:${job.generation}`,
-        })(job);
-        await DBOS.runStep(() => this.jobs.acknowledge(job), { name: 'acknowledge-enqueue' });
+        if (this.stopped) {
+          return;
+        }
+        const queue = youtubeEmbed(job.url) ? this.transcripts : this.media;
+        await queue.add('process', job, { jobId: `record:${job.id}:${job.generation}` });
       }
       if (batch.length < 100) {
         return;
@@ -145,45 +95,87 @@ export class JobWorker {
       after = batch.at(-1)!.id;
     }
   }
+
   wake() {
     if (this.stopped || this.waking) {
       return;
     }
-    this.waking = DBOS.startWorkflow(this.dispatchWorkflow, { queueName: 'dispatch' })(
-      new Date(),
-      null,
-    )
+    this.waking = this.dispatch
+      .add('reconcile', null)
       .then(() => {})
       .catch((error) => console.error('Could not dispatch jobs:', message(error)))
       .finally(() => {
         this.waking = undefined;
       });
   }
-  private async attempt(job: RecordJob): Promise<number | null> {
+
+  private async pollPlaylist(job: Job<PlaylistJob>) {
+    const input = { ...job.data, pollId: `playlist:${job.data.id}:${job.data.nextCheckAt}` };
+    const controller = new AbortController();
+    this.polling.add(controller);
+    try {
+      if (this.stopped) {
+        await job.moveToDelayed(Date.now() + 1000);
+        return;
+      }
+      if (!(await this.playlists.beginPoll(input))) {
+        return;
+      }
+      const result = await this.source.list(
+        input.url,
+        AbortSignal.any([controller.signal, AbortSignal.timeout(5 * 60000)]),
+      );
+      controller.signal.throwIfAborted();
+      await this.playlists.sync({ ...input, ...result });
+      this.wake();
+    } catch (error) {
+      if (this.stopped) {
+        await job.moveToDelayed(Date.now() + 1000);
+      } else if (job.attemptsMade + 1 >= options.attempts) {
+        await this.playlists.failure({ ...input, error: message(error) });
+      } else {
+        throw error;
+      }
+    } finally {
+      this.polling.delete(controller);
+    }
+  }
+
+  private async processRecord(job: Job<RecordJob>) {
     if (this.stopped) {
-      throw new Error('Worker is stopping.');
+      await job.moveToDelayed(Date.now() + 1000);
+      return;
     }
-    const current = await this.jobs.current(job);
+    const current = await this.jobs.current(job.data);
     if (!current) {
-      return null;
+      return;
     }
-    const record = await this.records.get(job);
+    const deadline = current.nextAttemptAt ? Date.parse(current.nextAttemptAt) : 0;
+    if (deadline > Date.now()) {
+      await job.moveToDelayed(deadline);
+      return;
+    }
+    const record = await this.records.get(job.data);
     if (!record) {
-      return null;
+      return;
     }
     try {
       await this.processor.run(record);
-      return null;
     } catch (error) {
       if (this.stopped) {
-        throw error;
+        await job.moveToDelayed(Date.now() + 1000);
+        return;
       }
-      if (!(await this.jobs.current(job))) {
-        return null;
+      if (!(await this.jobs.current(job.data))) {
+        return;
       }
-      return this.retry(job, current.attempts, error);
+      const retryAt = await this.retry(job.data, current.attempts, error);
+      if (retryAt !== null) {
+        await job.moveToDelayed(retryAt);
+      }
     }
   }
+
   private async retry(job: RecordJob, previousAttempts: number, error: unknown) {
     const rateLimited = error instanceof CaptionServiceError && error.retryAt !== null;
     const attempts = previousAttempts + (rateLimited ? 0 : 1);
@@ -199,22 +191,14 @@ export class JobWorker {
     const delay = rateLimited
       ? Math.max(1000, error.retryAt! - Date.now())
       : Math.min(3600000, 30000 * 2 ** (attempts - 1));
-    await this.jobs.waiting({
-      ...job,
-      attempts,
-      retryAt: Date.now() + delay,
-      error: message(error),
-    });
-    return delay;
+    const retryAt = Date.now() + delay;
+    await this.jobs.waiting({ ...job, attempts, retryAt, error: message(error) });
+    return retryAt;
   }
+
   async cancel(id: string) {
+    // Deleted records fail the owner/generation check if a delayed job wakes later.
     await this.processor.cancel(id);
-    const workflows = await DBOS.listWorkflows({
-      workflow_id_prefix: `record:${id}:`,
-      status: ['PENDING', 'ENQUEUED'],
-      loadInput: false,
-    });
-    await DBOS.cancelWorkflows(workflows.map((workflow) => workflow.workflowID));
   }
   deleteFiles(input: Actor & { id: string }) {
     return this.processor.deleteFiles(input);
@@ -223,9 +207,23 @@ export class JobWorker {
     return this.processor.mediaPath(input);
   }
   async stop() {
+    if (this.stopped) {
+      return;
+    }
     this.stopped = true;
+    for (const worker of this.workers) {
+      worker.pause();
+    }
+    for (const controller of this.polling) {
+      controller.abort();
+    }
+    await this.waking;
     await this.processor.stop();
-    await DBOS.shutdown({ workflowCompletionTimeoutMS: 1000 });
+    await Promise.all(this.workers.map((worker) => worker.close()));
+    for (const queue of [this.transcripts, this.media, this.discovery, this.dispatch]) {
+      queue.close();
+    }
+    shutdownManager();
   }
 }
 function message(error: unknown) {

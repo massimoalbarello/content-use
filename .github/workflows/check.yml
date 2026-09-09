@@ -12,22 +12,6 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      TEST_DBOS_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
@@ -61,8 +45,6 @@ jobs:
       - name: Prepare release files
         run: |
           cp LICENSE release/
-          cp apps/backend/native/postgres/BUSYBOX-LICENSE release/
-          cp apps/backend/native/postgres/busybox-1.35.0.tar.bz2 release/
           cd release
           sha256sum content-use > SHA256SUMS
       - name: Publish nibrun binary

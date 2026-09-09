@@ -11,12 +11,3 @@ declare module '*.so.1' {
   const path: string;
   export default path;
 }
-
-declare module '*.so' {
-  const path: string;
-  export default path;
-}
-declare module '*native/postgres/busybox' {
-  const path: string;
-  export default path;
-}
