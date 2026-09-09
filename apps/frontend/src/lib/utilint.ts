@@ -11,11 +11,6 @@ export const summaryOptions = (id: string, transcriptVersion: string) =>
   });
 export const generateSummary = async (id: string) =>
   unwrap(await api.records({ id }).summary.post());
-export const configureUtilint = async (input: {
-  origin: string;
-  clientId: string;
-  clientSecret: string;
-}) => unwrap(await api.utilint.client.put(input));
 export const disconnectUtilint = async () => unwrap(await api.utilint.connection.delete());
 
 // Open synchronously from the user's click, then begin the session-bound flow on our backend.

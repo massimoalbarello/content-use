@@ -12,7 +12,20 @@ import polls from './migrations/0006_playlist_polls.sql' with { type: 'text' };
 import accounts from './migrations/0007_accounts.sql' with { type: 'text' };
 import utilint from './migrations/0008_utilint.sql' with { type: 'text' };
 
-const migrations = [auth, records, settings, playlists, jobs, dispatch, polls, accounts, utilint];
+import utilintClient from './migrations/0009_utilint_client.sql' with { type: 'text' };
+
+const migrations = [
+  auth,
+  records,
+  settings,
+  playlists,
+  jobs,
+  dispatch,
+  polls,
+  accounts,
+  utilint,
+  utilintClient,
+];
 export async function migrate(db: SQL) {
   await db.unsafe('PRAGMA journal_mode = WAL');
   await db.unsafe('CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY)');

@@ -5,6 +5,7 @@ import { createSqliteDatabase } from './db/client';
 import { migrate } from './db/migrate';
 import { loadAuthSecret } from './lib/auth/auth-secret';
 import { createAuth } from './lib/auth/better-auth';
+import { OWNER_USER_ID } from './lib/auth/owner-registration';
 import { YoutubeAccounts } from './lib/media/accounts';
 import { HostedCaptions } from './lib/media/hosted-captions';
 import { MediaPipeline } from './lib/media/pipeline';
@@ -24,6 +25,7 @@ import { JobWorker } from './services/jobs/worker';
 import { OwnerRegistrationService } from './services/owner-registration/service';
 import { PlaylistsService } from './services/playlists/service';
 import { RecordsService } from './services/records/service';
+import { createUtilintClient } from './services/utilint/client';
 import { createUtilintService } from './services/utilint/service';
 
 const dataFolder = resolve(process.env.NIBRUN_DATA_DIR ?? process.env.DATA_FOLDER ?? './data');
@@ -61,10 +63,19 @@ const accounts = new AccountsService(
   jobs,
 );
 const records = new RecordsService(repository, jobs, validatePublicUrl);
+const utilintRepository = new SqliteUtilintRepository(database);
+const utilintVault = createUtilintVault(secret.value);
 const utilint = createUtilintService({
-  repository: new SqliteUtilintRepository(database),
+  client: createUtilintClient({
+    repository: utilintRepository,
+    vault: utilintVault,
+    callback: `${origin}/api/utilint/callback`,
+    utilintOrigin: process.env.UTILINT_URL,
+    legacyOwnerId: OWNER_USER_ID,
+  }),
+  repository: utilintRepository,
   records: repository,
-  vault: createUtilintVault(secret.value),
+  vault: utilintVault,
   origin,
 });
 const registration = new OwnerRegistrationService(new SqliteOwnerRegistrationRepository(database));

@@ -2,6 +2,8 @@ import type { SQL } from 'bun';
 export type SecretKind = 'client' | 'tokens';
 export type Summary = { text: string; model: string; createdAt: string };
 export interface UtilintRepository {
+  readClient(): Promise<string | null>;
+  saveClientIfAbsent(encrypted: string): Promise<void>;
   read(ownerId: string, kind: SecretKind): Promise<string | null>;
   write(ownerId: string, kind: SecretKind, encrypted: string): Promise<void>;
   remove(ownerId: string, kind: SecretKind): Promise<void>;
@@ -10,6 +12,14 @@ export interface UtilintRepository {
 }
 export class SqliteUtilintRepository implements UtilintRepository {
   constructor(private readonly db: SQL) {}
+  async readClient() {
+    const [row] = await this.db`SELECT encrypted FROM utilint_client WHERE id=1`;
+    return row?.encrypted ?? null;
+  }
+  async saveClientIfAbsent(encrypted: string) {
+    await this
+      .db`INSERT INTO utilint_client(id,encrypted) VALUES(1,${encrypted}) ON CONFLICT(id) DO NOTHING`;
+  }
   async read(ownerId: string, kind: SecretKind) {
     const [row] = await this
       .db`SELECT encrypted FROM utilint_secrets WHERE owner_id=${ownerId} AND kind=${kind}`;

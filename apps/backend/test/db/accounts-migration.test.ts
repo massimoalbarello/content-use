@@ -48,7 +48,8 @@ test('account migration preserves deployed identity, settings, captions, polling
     expect(await db`SELECT * FROM accounts`).toHaveLength(0);
     expect(await db`SELECT * FROM utilint_secrets`).toHaveLength(0);
     expect(await db`SELECT * FROM record_summaries`).toHaveLength(0);
-    expect(await db`SELECT version FROM migrations`).toHaveLength(9);
+    expect(await db`SELECT * FROM utilint_client`).toHaveLength(0);
+    expect(await db`SELECT version FROM migrations`).toHaveLength(10);
     expect(await db.unsafe('PRAGMA foreign_key_check')).toHaveLength(0);
   } finally {
     await db.close();

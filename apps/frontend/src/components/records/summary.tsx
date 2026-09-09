@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { Check, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -53,8 +52,7 @@ export function RecordSummary({
             !hasTranscript ||
             generate.isPending ||
             connection.isPending ||
-            connection.isError ||
-            !connection.data?.configured
+            connection.isError
           }
           onClick={() => {
             setExpanded(true);
@@ -68,11 +66,6 @@ export function RecordSummary({
           <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
             {expanded ? 'Hide summary' : 'View summary'}
           </Button>
-        )}
-        {connection.data && !connection.data.configured && (
-          <Link className="text-xs underline" to="/settings">
-            Set up utilint
-          </Link>
         )}
       </div>
       {expanded && (

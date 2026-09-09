@@ -43,13 +43,17 @@ supported sources use yt-dlp. Sources without captions remain available to watch
 
 ## Summaries with utilint
 
-In **Settings → utilint**, register Content Use in your Utilint developer dashboard using the
-callback URL shown in Settings. The consent URL in Utilint’s dashboard runs
-the real connection, including returning after passkey login. Paste the client ID and one-time
-client secret, then save.
-Developer setup is hidden once connected; disconnect to change the app configuration.
-The default Utilint instance is `https://utilint-crrxrd.nibrun.app`; it can be changed for another
-self-hosted instance or localhost development.
+Click **Connect utilint** in Settings or **Summarize** on a record. Content Use registers its app
+with Utilint automatically on the first connection and stores one encrypted OAuth client per
+deployment. No developer account, client ID, or secret is needed from the user. Existing
+installations retain their original client and connections.
+
+The host can set `UTILINT_URL` to another Utilint origin (HTTPS, or HTTP localhost for development).
+It defaults to `https://utilint-crrxrd.nibrun.app`. Keep the deployment's public URL and persistent
+data directory stable. Registration is reused across users, reconnects, and restarts; disconnecting
+only removes that user's tokens. This remains a private workspace owned by its first passkey user.
+The OAuth client belongs to the deployment independently of the user, and each user's tokens,
+state, PKCE verifier, and summaries remain scoped to that user.
 
 Click **Summarize** beside a dashboard record or on its record page. If needed, a Utilint popup
 walks through passkey signup, connecting ChatGPT, and authorizing Content Use. The summary starts

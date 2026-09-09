@@ -60,13 +60,6 @@ export function utilintRoutes({
         return { actor: { ownerId: session.user.id, sessionId: session.session.id } };
       })
       .get('/utilint', ({ actor }) => utilint.status(actor.ownerId))
-      .put('/utilint/client', ({ actor, body }) => utilint.configure(actor.ownerId, body), {
-        body: t.Object({
-          origin: t.String({ format: 'uri', maxLength: 2000 }),
-          clientId: t.String({ minLength: 1, maxLength: 200 }),
-          clientSecret: t.String({ minLength: 1, maxLength: 2000 }),
-        }),
-      })
       .post('/utilint/connect', ({ actor, body }) => utilint.begin(actor, body.recordId), {
         body: t.Object({ recordId: t.Optional(RecordParams.properties.id) }),
       })

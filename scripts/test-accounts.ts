@@ -20,6 +20,7 @@ import { AccountsService } from '../apps/backend/src/services/accounts/service';
 import { OwnerRegistrationService } from '../apps/backend/src/services/owner-registration/service';
 import { PlaylistsService } from '../apps/backend/src/services/playlists/service';
 import { RecordsService } from '../apps/backend/src/services/records/service';
+import { createUtilintClient } from '../apps/backend/src/services/utilint/client';
 import { createUtilintService } from '../apps/backend/src/services/utilint/service';
 
 const dataFolder = await mkdtemp(join(tmpdir(), 'content-use-accounts-e2e-'));
@@ -72,6 +73,11 @@ try {
   const records = new RecordsService(new SqliteRecordsRepository(db), jobs, validatePublicUrl);
   app = createApp({
     utilint: createUtilintService({
+      client: createUtilintClient({
+        repository: new SqliteUtilintRepository(db),
+        vault: createUtilintVault(crypto.randomUUID().repeat(2)),
+        callback: `${base}/api/utilint/callback`,
+      }),
       repository: new SqliteUtilintRepository(db),
       records: new SqliteRecordsRepository(db),
       origin: base,

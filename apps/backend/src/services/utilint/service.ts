@@ -5,15 +5,28 @@ import { type Actor, DomainError } from '#models/records.ts';
 import type { RecordsRepository } from '#repositories/records/repository.ts';
 import type { SecretKind, UtilintRepository } from '#repositories/utilint/repository.ts';
 
-type ClientConfig = { origin: string; clientId: string; clientSecret: string };
+import type { ClientConfig, UtilintClient } from './client';
 export type UtilintActor = Actor & { sessionId: string };
 const scopes = 'profile ai:invoke offline_access';
-type Tokens = { accessToken: string; refreshToken: string; expiresAt: number };
-type Attempt = UtilintActor & { verifier: string; expiresAt: number; recordId?: string };
+type Tokens = {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  origin?: string;
+  clientId?: string;
+};
+type Attempt = UtilintActor & {
+  origin: string;
+  clientId: string;
+  verifier: string;
+  expiresAt: number;
+  recordId?: string;
+};
 const reconnect = () => new DomainError('Connect utilint to generate a summary.', 409);
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 
 export function createUtilintService({
+  client: deploymentClient,
   repository,
   records,
   vault,
@@ -21,6 +34,7 @@ export function createUtilintService({
   transport = fetch,
   now = Date.now,
 }: {
+  client: UtilintClient;
   repository: UtilintRepository;
   records: RecordsRepository;
   vault: UtilintVault;
@@ -94,6 +108,7 @@ export function createUtilintService({
   }
   async function storeTokens(
     ownerId: string,
+    config: ClientConfig,
     result: oauth.TokenEndpointResponse,
     previousRefresh?: string,
   ) {
@@ -109,6 +124,8 @@ export function createUtilintService({
       throw new DomainError('Utilint returned an incomplete connection. Please reconnect.', 502);
     }
     const tokens = {
+      origin: config.origin,
+      clientId: config.clientId,
       accessToken: result.access_token,
       refreshToken: result.refresh_token ?? previousRefresh!,
       expiresAt: now() + result.expires_in * 1000,
@@ -116,10 +133,31 @@ export function createUtilintService({
     await write(ownerId, 'tokens', tokens);
     return tokens;
   }
+  async function userTokens(ownerId: string, config: ClientConfig | null) {
+    const tokens = await read<Tokens>(ownerId, 'tokens');
+    if (!config || !tokens) {
+      return null;
+    }
+    if (tokens.origin === config.origin && tokens.clientId === config.clientId) {
+      return tokens;
+    }
+    if (!tokens.origin && !tokens.clientId) {
+      const legacy = await read<ClientConfig>(ownerId, 'client');
+      if (
+        legacy?.origin === config.origin &&
+        legacy.clientId === config.clientId &&
+        legacy.clientSecret === config.clientSecret
+      ) {
+        return tokens;
+      }
+    }
+    // Never send a user's existing tokens to a different issuer or OAuth client.
+    return null;
+  }
   function credentials(ownerId: string) {
     return exclusive(ownerId, async () => {
-      const config = await read<ClientConfig>(ownerId, 'client');
-      let tokens = await read<Tokens>(ownerId, 'tokens');
+      const config = await deploymentClient.read();
+      let tokens = await userTokens(ownerId, config);
       if (!config || !tokens) {
         throw reconnect();
       }
@@ -134,7 +172,7 @@ export function createUtilintService({
             options,
           );
           const result = await oauth.processRefreshTokenResponse(server, client, response);
-          tokens = await storeTokens(ownerId, result, tokens.refreshToken);
+          tokens = await storeTokens(ownerId, config, result, tokens.refreshToken);
         } catch {
           // A refresh may have rotated upstream even if its response was lost. Reauthorize rather than replay it.
           await repository.remove(ownerId, 'tokens');
@@ -179,46 +217,18 @@ export function createUtilintService({
   }
   return {
     async status(ownerId: string) {
-      const config = await read<ClientConfig>(ownerId, 'client');
+      const config = await deploymentClient.read();
       return {
-        configured: Boolean(config),
-        connected: Boolean(await read<Tokens>(ownerId, 'tokens')),
-        origin: config?.origin ?? null,
-        clientId: config?.clientId ?? null,
-        callback,
+        connected: Boolean(await userTokens(ownerId, config)),
+        origin: config?.origin ?? deploymentClient.origin,
       };
-    },
-    configure(ownerId: string, input: ClientConfig) {
-      const url = new URL(input.origin);
-      if (
-        url.username ||
-        url.password ||
-        url.search ||
-        url.hash ||
-        url.pathname !== '/' ||
-        !(
-          url.protocol === 'https:' ||
-          (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))
-        )
-      ) {
-        throw new DomainError('Use the HTTPS origin of your Utilint instance.');
-      }
-      return exclusive(ownerId, async () => {
-        clearAttempts(ownerId);
-        await repository.remove(ownerId, 'tokens');
-        await write(ownerId, 'client', { ...input, origin: url.origin });
-        return { configured: true };
-      });
     },
     begin(actor: UtilintActor, recordId?: string) {
       return exclusive(actor.ownerId, async () => {
         if (recordId) {
           await requireRecord({ ownerId: actor.ownerId, id: recordId });
         }
-        const config = await read<ClientConfig>(actor.ownerId, 'client');
-        if (!config) {
-          throw new DomainError('Set up utilint in Settings first.', 409);
-        }
+        const config = await deploymentClient.get();
         for (const [state, attempt] of attempts) {
           if (attempt.expiresAt <= now()) {
             attempts.delete(state);
@@ -227,7 +237,14 @@ export function createUtilintService({
         clearAttempts(actor.ownerId);
         const state = oauth.generateRandomState();
         const verifier = oauth.generateRandomCodeVerifier();
-        attempts.set(state, { ...actor, verifier, expiresAt: now() + 600000, recordId });
+        attempts.set(state, {
+          ...actor,
+          origin: config.origin,
+          clientId: config.clientId,
+          verifier,
+          expiresAt: now() + 600000,
+          recordId,
+        });
         const url = new URL(`/connect/${encodeURIComponent(config.clientId)}`, config.origin);
         url.search = new URLSearchParams({
           state,
@@ -253,8 +270,8 @@ export function createUtilintService({
           );
         }
         attempts.delete(state);
-        const config = await read<ClientConfig>(actor.ownerId, 'client');
-        if (!config) {
+        const config = await deploymentClient.read();
+        if (!config || config.origin !== attempt.origin || config.clientId !== attempt.clientId) {
           throw reconnect();
         }
         const { server, client, auth, options } = oauthClient(config);
@@ -270,7 +287,7 @@ export function createUtilintService({
             options,
           );
           const result = await oauth.processAuthorizationCodeResponse(server, client, response);
-          await storeTokens(actor.ownerId, result);
+          await storeTokens(actor.ownerId, config, result);
         } catch {
           throw new DomainError(
             'Connection was cancelled or could not be verified. Start again from the summary button.',
