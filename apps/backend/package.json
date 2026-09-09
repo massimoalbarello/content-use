@@ -21,6 +21,7 @@
     "elysia": "^1.4.30",
     "entities": "^8.1.0",
     "ipaddr.js": "^2.3.0",
+    "oauth4webapi": "^3.8.8",
     "subtitle": "^4.2.2"
   }
 }

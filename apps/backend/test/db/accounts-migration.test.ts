@@ -46,7 +46,10 @@ test('account migration preserves deployed identity, settings, captions, polling
       await db`SELECT account_id,next_check_at,enabled FROM playlists`;
     expect(retained).toEqual([{ account_id: null, next_check_at: '2026-09-10', enabled: 1 }]);
     expect(await db`SELECT * FROM accounts`).toHaveLength(0);
-    expect(await db`SELECT version FROM migrations`).toHaveLength(8);
+    expect(await db`SELECT * FROM utilint_secrets`).toHaveLength(0);
+    expect(await db`SELECT * FROM record_summaries`).toHaveLength(0);
+    expect(await db`SELECT * FROM utilint_client`).toHaveLength(0);
+    expect(await db`SELECT version FROM migrations`).toHaveLength(10);
     expect(await db.unsafe('PRAGMA foreign_key_check')).toHaveLength(0);
   } finally {
     await db.close();

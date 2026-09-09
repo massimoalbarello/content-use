@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Fingerprint } from 'lucide-react';
 import { ErrorNotice } from '../components/layout/states';
 import { Button } from '../components/ui/button';
+import { UtilintSettings } from '../components/utilint-settings';
 import { authClient } from '../lib/auth';
 
 export function Settings() {
@@ -10,6 +11,7 @@ export function Settings() {
       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Workspace</p>
       <h1 className="mt-4 text-3xl font-medium tracking-tight">Settings</h1>
       <PasskeySettings />
+      <UtilintSettings />
     </div>
   );
 }
