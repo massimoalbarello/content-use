@@ -20,6 +20,10 @@ export function Login() {
       }
     },
     onSuccess: async () => {
+      if (new URLSearchParams(window.location.search).get('connect') === 'utilint') {
+        window.location.assign('/api/utilint/callback?utilint_connect=1');
+        return;
+      }
       await client.invalidateQueries();
     },
   });

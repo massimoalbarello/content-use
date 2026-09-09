@@ -9,14 +9,18 @@ import { createSqliteDatabase } from '../apps/backend/src/db/client';
 import { migrate } from '../apps/backend/src/db/migrate';
 import { createAuth } from '../apps/backend/src/lib/auth/better-auth';
 import { validatePublicUrl } from '../apps/backend/src/lib/media/public-url';
+import { createUtilintVault } from '../apps/backend/src/lib/utilint-vault';
 import { SqliteAccountsRepository } from '../apps/backend/src/repositories/accounts/repository';
 import { SqliteOwnerRegistrationRepository } from '../apps/backend/src/repositories/owner-registration/repository';
 import { SqlitePlaylistsRepository } from '../apps/backend/src/repositories/playlists/repository';
 import { SqliteRecordsRepository } from '../apps/backend/src/repositories/records/repository';
+import { SqliteUtilintRepository } from '../apps/backend/src/repositories/utilint/repository';
 import { AccountsService } from '../apps/backend/src/services/accounts/service';
 import { OwnerRegistrationService } from '../apps/backend/src/services/owner-registration/service';
 import { PlaylistsService } from '../apps/backend/src/services/playlists/service';
 import { RecordsService } from '../apps/backend/src/services/records/service';
+import { createUtilintClient } from '../apps/backend/src/services/utilint/client';
+import { createUtilintService } from '../apps/backend/src/services/utilint/service';
 
 const dataFolder = await mkdtemp(join(tmpdir(), 'content-use-import-e2e-'));
 const db = await createSqliteDatabase({ dataFolder });
@@ -48,7 +52,21 @@ try {
             videos: url.includes('PLempty123456') ? [] : videos,
           }),
   };
+  const recordsRepository = new SqliteRecordsRepository(db);
+  const utilintRepository = new SqliteUtilintRepository(db);
+  const vault = createUtilintVault(crypto.randomUUID().repeat(2));
   app = createApp({
+    utilint: createUtilintService({
+      client: createUtilintClient({
+        repository: utilintRepository,
+        vault,
+        callback: `${base}/api/utilint/callback`,
+      }),
+      repository: utilintRepository,
+      records: recordsRepository,
+      origin: base,
+      vault,
+    }),
     origin: base,
     assets,
     auth: createAuth({
@@ -66,7 +84,7 @@ try {
       jobs,
     ),
     playlists: new PlaylistsService(repository, jobs, discovery),
-    records: new RecordsService(new SqliteRecordsRepository(db), jobs, validatePublicUrl),
+    records: new RecordsService(recordsRepository, jobs, validatePublicUrl),
   }).listen({ hostname: '127.0.0.1', port: 3111 });
   assert.equal(
     (await fetch(`${base}/api/playlists/preview?url=${encodeURIComponent(playlistUrl)}`)).status,

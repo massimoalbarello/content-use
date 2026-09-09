@@ -88,9 +88,22 @@ export const accountRoute = createRoute({
   path: '/accounts/$id',
   component: lazyRouteComponent(() => import('./routes/account'), 'AccountPage'),
 });
+export const utilintCompleteRoute = createRoute({
+  getParentRoute: () => root,
+  path: '/utilint/complete',
+  validateSearch: (search: Record<string, unknown>) => ({
+    status: search.status === 'connected' ? 'connected' : 'failed',
+    record:
+      typeof search.record === 'string' && /^rec-[a-zA-Z0-9-]+$/.test(search.record)
+        ? search.record
+        : undefined,
+  }),
+  component: lazyRouteComponent(() => import('./routes/utilint-complete'), 'UtilintComplete'),
+});
 export const router = createRouter({
   scrollRestoration: true,
   routeTree: root.addChildren([
+    utilintCompleteRoute,
     dashboardRoute,
     newRoute,
     legacyNewRoute,

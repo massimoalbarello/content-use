@@ -4,6 +4,7 @@ import { AudioLines, Film } from 'lucide-react';
 import { useState } from 'react';
 import { PlaylistTags } from './playlist-tags';
 import { durationLabel, Status } from './status';
+import { RecordSummary as SummaryAction } from './summary';
 
 function RecordThumbnail({ record }: { record: RecordSummary }) {
   const [failed, setFailed] = useState(false);
@@ -41,9 +42,9 @@ export function RecordList({ records }: { records: RecordSummary[] }) {
       {records.map((record) => (
         <div
           key={record.id}
-          className="grid items-center gap-4 border-b border-border py-5 transition-colors hover:bg-muted/40 lg:grid-cols-[minmax(0,1fr)_70px_115px_65px]"
+          className="grid items-start gap-4 border-b border-border py-5 transition-colors hover:bg-muted/40 lg:grid-cols-[minmax(0,1fr)_70px_115px_65px]"
         >
-          <div className="flex min-w-0 items-center gap-4">
+          <div className="flex min-w-0 items-start gap-4">
             <Link
               to="/records/$id"
               params={{ id: record.id }}
@@ -52,7 +53,7 @@ export function RecordList({ records }: { records: RecordSummary[] }) {
             >
               <RecordThumbnail key={record.thumbnailUrl} record={record} />
             </Link>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h3
                 className="line-clamp-2 break-words text-sm font-medium leading-6 lg:truncate"
                 title={record.title}
@@ -72,6 +73,13 @@ export function RecordList({ records }: { records: RecordSummary[] }) {
                     {durationLabel(record.duration)}
                   </span>
                 )}
+              </div>
+              <div className="mt-3">
+                <SummaryAction
+                  id={record.id}
+                  hasTranscript={record.hasTranscript}
+                  transcriptVersion={record.updatedAt}
+                />
               </div>
             </div>
           </div>
