@@ -67,7 +67,7 @@ export function RecordList({ records }: { records: RecordSummary[] }) {
               </p>
               <PlaylistTags playlists={record.playlists} />
               <div className="mt-2 flex items-center gap-3 lg:hidden">
-                <Status status={record.status} />
+                <Status status={record.status} hasTranscript={record.hasTranscript} />
                 {record.duration !== null && (
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {durationLabel(record.duration)}
@@ -80,7 +80,7 @@ export function RecordList({ records }: { records: RecordSummary[] }) {
             {durationLabel(record.duration)}
           </span>
           <span className="hidden lg:block">
-            <Status status={record.status} />
+            <Status status={record.status} hasTranscript={record.hasTranscript} />
           </span>
           <span className="hidden text-xs text-muted-foreground lg:block">
             {new Date(record.createdAt).toLocaleDateString(undefined, {

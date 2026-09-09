@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { HostedCaptions } from '../../../src/lib/media/hosted-captions';
+import { CaptionServiceError, HostedCaptions } from '../../../src/lib/media/hosted-captions';
 
 const url = 'https://www.youtube.com/watch?v=rY0wnfFHYbs';
 const transcript = {
@@ -36,15 +36,36 @@ test('optional deployment key stays in the authorization header and out of URLs 
     'credential is invalid',
   );
 });
-test('missing captions and quota failures are actionable errors, never fake transcripts or AI fallback', async () => {
-  for (const [status, message] of [
-    [404, 'No captions'],
-    [429, 'request limit'],
+test('only the documented no-transcript response completes without captions', async () => {
+  const missing = new HostedCaptions(undefined, () =>
+    Promise.resolve(Response.json({ error: { code: 'video_not_found' } }, { status: 404 })),
+  );
+  expect(await missing.fetch(url, AbortSignal.timeout(5000))).toEqual({
+    title: url,
+    markdown: '',
+    duration: null,
+  });
+  const empty = new HostedCaptions(undefined, () =>
+    Promise.resolve(Response.json({ title: 'Instrumental', transcript: [] })),
+  );
+  expect((await empty.fetch(url, AbortSignal.timeout(5000))).markdown).toBe('');
+  for (const [status, code, permanent] of [
+    [429, 'rate_limit_exceeded', false],
+    [500, 'internal_error', false],
+    [503, 'service_unavailable', false],
+    [408, 'timeout', false],
+    [401, 'unauthorized', true],
+    [404, 'unknown_endpoint', true],
   ] as const) {
     const client = new HostedCaptions(undefined, () =>
-      Promise.resolve(Response.json({ error: 'unavailable' }, { status })),
+      Promise.resolve(Response.json({ error: { code } }, { status })),
     );
-    await expect(client.fetch(url, AbortSignal.timeout(5000))).rejects.toThrow(message);
+    const error = await client.fetch(url, AbortSignal.timeout(5000)).catch((error) => error);
+    expect(error).toBeInstanceOf(CaptionServiceError);
+    expect(error.permanent).toBe(permanent);
+    if (status === 429) {
+      expect(error.retryAt).toBeGreaterThan(Date.now());
+    }
   }
   const malformed = new HostedCaptions(undefined, () =>
     Promise.resolve(Response.json({ title: 'Video', transcript: [{ text: 'missing timing' }] })),

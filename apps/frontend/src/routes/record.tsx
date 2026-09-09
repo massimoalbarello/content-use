@@ -71,7 +71,7 @@ export function RecordPage() {
               <div className="flex items-center gap-3 text-[11px] uppercase tracking-widest text-muted-foreground">
                 <FileText size={14} />
                 Record
-                <Status status={record.data.status} />
+                <Status status={record.data.status} hasTranscript={Boolean(record.data.markdown)} />
               </div>
               <div className="flex items-center gap-1">
                 <Button
@@ -247,7 +247,7 @@ function Transcript({ markdown, status }: { markdown: string; status: string }) 
           {status === 'failed'
             ? 'Retry when the source is available, or add a transcript with Edit record.'
             : status === 'ready'
-              ? 'This source has no captions. You can write a transcript with Edit record.'
+              ? 'No captions available.'
               : 'Looking for captions from the original source…'}
         </p>
       )}

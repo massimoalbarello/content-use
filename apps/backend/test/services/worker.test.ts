@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test';
+import { HostedCaptions } from '../../src/lib/media/hosted-captions';
+import { recordSummary } from '../../src/models/records';
 import { SqliteRecordsRepository } from '../../src/repositories/records/repository';
 import { RecordProcessor } from '../../src/services/jobs/processor';
 import { testDatabase } from '../support/database';
@@ -103,6 +105,51 @@ test('deleting an active job aborts processing and does not recreate its record'
     await repo.remove(record);
     await worker.cancel(record.id);
     expect(await repo.get(record)).toBeNull();
+  } finally {
+    await worker.stop();
+    await db.close();
+  }
+});
+
+test('YouTube without captions completes normally, preserves metadata, and stays out of failures', async () => {
+  const db = await testDatabase();
+  const repo = new SqliteRecordsRepository(db);
+  const captions = new HostedCaptions(undefined, () =>
+    Promise.resolve(Response.json({ error: { code: 'video_not_found' } }, { status: 404 })),
+  );
+  let downloads = 0;
+  const worker = new RecordProcessor(repo, {
+    ...pipeline,
+    captions: ({ record, signal }) => captions.fetch(record.url, signal),
+    download: () => {
+      downloads++;
+      return Promise.reject(new Error('Must not download YouTube'));
+    },
+  });
+  try {
+    const record = await repo.create({
+      ownerId: 'alice',
+      id: 'music',
+      title: 'Instrumental',
+      url: 'https://youtu.be/rY0wnfFHYbs',
+    });
+    await repo.saveCaptions({ ...record, markdown: '', title: 'Instrumental', duration: 249 });
+    await worker.run((await repo.get(record))!);
+    const result = (await repo.get(record))!;
+    expect(result.status).toBe('ready');
+    expect(result.error).toBeNull();
+    expect(result.markdown).toBe('');
+    expect(result.progress).toBe('No captions available');
+    expect(result.title).toBe('Instrumental');
+    expect(result.duration).toBe(249);
+    expect(recordSummary(result).hasTranscript).toBe(false);
+    expect(
+      (await repo.list({ ownerId: 'alice', search: '', offset: 0, status: 'failed' })).total,
+    ).toBe(0);
+    expect(
+      (await repo.list({ ownerId: 'alice', search: '', offset: 0, status: 'ready' })).total,
+    ).toBe(1);
+    expect(downloads).toBe(0);
   } finally {
     await worker.stop();
     await db.close();

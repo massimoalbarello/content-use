@@ -1,10 +1,16 @@
 import type { RecordStatus } from '@repo/backend/record';
-export function Status({ status }: { status: RecordStatus }) {
+export function Status({
+  status,
+  hasTranscript,
+}: {
+  status: RecordStatus;
+  hasTranscript: boolean;
+}) {
   const label = {
     queued: 'Queued',
     downloading: 'Processing',
     transcribing: 'Processing',
-    ready: 'Ready',
+    ready: hasTranscript ? 'Ready' : 'No captions',
     failed: 'Needs attention',
   }[status];
   return (

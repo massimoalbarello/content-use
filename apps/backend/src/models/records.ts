@@ -26,6 +26,7 @@ export type ContentRecord = {
 };
 export type RecordSummary = Omit<ContentRecord, 'ownerId' | 'markdown' | 'mediaName'> & {
   thumbnailUrl: string | null;
+  hasTranscript: boolean;
   playlists: PlaylistLink[];
 };
 export type RecordView = Omit<ContentRecord, 'ownerId' | 'mediaName'> & {
@@ -60,6 +61,7 @@ export function recordSummary(
   return {
     ...summary,
     playlists,
+    hasTranscript: Boolean(_markdown),
     thumbnailUrl: videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : null,
   };
 }

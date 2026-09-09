@@ -11,7 +11,6 @@ type JsonObject = Record<string, unknown>;
 const errors: Record<number, string> = {
   401: 'The caption service credential is invalid. Contact the app administrator.',
   402: 'The caption service has no credits remaining. Contact the app administrator.',
-  404: 'No captions were found, or this video is unavailable. You can still watch an available video and edit the record.',
   429: 'The caption service is temporarily at its request limit. Please retry later.',
 };
 export class CaptionServiceError extends Error {
@@ -55,16 +54,14 @@ export class HostedCaptions {
         errorBody = await boundedJson(response);
       } catch {}
     }
-    const dailyCap =
-      (errorBody.error as JsonObject | undefined)?.code === 'anonymous_daily_cap_exceeded';
+    const errorCode = (errorBody.error as JsonObject | undefined)?.code;
+    const dailyCap = errorCode === 'anonymous_daily_cap_exceeded';
     const blockedUntil = await this.quota?.observe(response.headers, response.status, dailyCap);
+    if (response.status === 404 && errorCode === 'video_not_found') {
+      return { title: url, markdown: '', duration: null };
+    }
     if (!response.ok) {
-      throw new CaptionServiceError(
-        errors[response.status] ??
-          `Caption service returned HTTP ${response.status}. Please retry.`,
-        response.status === 429 ? blockedUntil || Date.now() + 3600000 : null,
-        response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status),
-      );
+      throw serviceError(response.status, blockedUntil);
     }
     const result = await boundedJson(response);
     if (typeof result.title !== 'string' || !result.title.trim()) {
@@ -76,6 +73,13 @@ export class HostedCaptions {
       duration: null,
     };
   }
+}
+function serviceError(status: number, blockedUntil?: number): CaptionServiceError {
+  return new CaptionServiceError(
+    errors[status] ?? `Caption service returned HTTP ${status}. Please retry.`,
+    status === 429 ? blockedUntil || Date.now() + 3600000 : null,
+    status >= 400 && status < 500 && ![408, 429].includes(status),
+  );
 }
 async function boundedJson(response: Response): Promise<JsonObject> {
   if (!response.body) {

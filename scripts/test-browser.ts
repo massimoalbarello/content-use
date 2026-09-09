@@ -67,9 +67,7 @@ try {
   await page.getByLabel('Title').fill('A few words worth keeping');
   await page.getByRole('button', { name: 'Create record', exact: true }).click();
   await page.getByRole('heading', { name: 'A few words worth keeping' }).waitFor();
-  await page
-    .getByText('This source has no captions.', { exact: false })
-    .waitFor({ timeout: 120000 });
+  await page.getByText('No captions available.', { exact: false }).waitFor({ timeout: 120000 });
   const recordUrl = page.url();
   const id = recordUrl.split('/').pop()!;
   const record = await page.evaluate(async (id) => (await fetch(`/api/records/${id}`)).json(), id);
