@@ -1,16 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Sparkles } from 'lucide-react';
+import { Check, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { connectUtilint, generateSummary, summaryOptions, utilintOptions } from '../../lib/utilint';
 import { ErrorNotice } from '../layout/states';
 import { Button } from '../ui/button';
-export function RecordSummary({ id, hasTranscript }: { id: string; hasTranscript: boolean }) {
+export function RecordSummary({
+  id,
+  hasTranscript,
+  transcriptVersion,
+}: {
+  id: string;
+  hasTranscript: boolean;
+  transcriptVersion: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const qc = useQueryClient();
   const connection = useQuery(utilintOptions);
-  const summary = useQuery({ ...summaryOptions(id), enabled: expanded });
+  const options = summaryOptions(id, transcriptVersion);
+  const summary = useQuery({ ...options, enabled: hasTranscript });
+  const summarized = Boolean(summary.data?.summary);
   const generate = useMutation({
     mutationFn: async () => {
       if (!connection.data?.connected) {
@@ -23,18 +33,23 @@ export function RecordSummary({ id, hasTranscript }: { id: string; hasTranscript
     },
     onSuccess: (result) => {
       if (result) {
-        qc.setQueryData(summaryOptions(id).queryKey, result);
+        qc.setQueryData(options.queryKey, result);
       }
     },
     onSettled: () => qc.invalidateQueries(utilintOptions),
   });
   return (
-    <section className="col-span-full min-w-0">
+    <section className="min-w-0">
       <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="outline"
           size="sm"
+          className={
+            summarized ? 'border-emerald-200 text-emerald-700 disabled:opacity-100' : undefined
+          }
           disabled={
+            summarized ||
+            summary.isPending ||
             !hasTranscript ||
             generate.isPending ||
             connection.isPending ||
@@ -46,10 +61,10 @@ export function RecordSummary({ id, hasTranscript }: { id: string; hasTranscript
             generate.mutate();
           }}
         >
-          <Sparkles size={14} />
-          {generate.isPending ? 'Preparing summary…' : 'Summarize'}
+          {summarized ? <Check size={14} aria-hidden="true" /> : <Sparkles size={14} />}
+          {summarized ? 'Summarized' : generate.isPending ? 'Summarizing…' : 'Summarize'}
         </Button>
-        {hasTranscript && (
+        {summarized && (
           <Button variant="ghost" size="sm" onClick={() => setExpanded(!expanded)}>
             {expanded ? 'Hide summary' : 'View summary'}
           </Button>
@@ -64,14 +79,12 @@ export function RecordSummary({ id, hasTranscript }: { id: string; hasTranscript
         <div className="mt-4 rounded-xl border border-border p-5">
           <h2 className="text-sm font-medium">Summary</h2>
           <p className="mt-1 mb-4 text-xs text-muted-foreground">
-            Powered by your ChatGPT subscription through utilint.
+            Your ChatGPT subscription · utilint
           </p>
           <ErrorNotice error={generate.error || summary.error} />
           {generate.isPending ? (
             <p role="status" className="text-sm text-muted-foreground">
-              {connection.data?.connected
-                ? 'Generating your summary…'
-                : 'Finish connecting in the utilint window. Your summary will start automatically.'}
+              Preparing your summary…
             </p>
           ) : summary.data?.summary ? (
             <div className="markdown max-w-[70ch]">

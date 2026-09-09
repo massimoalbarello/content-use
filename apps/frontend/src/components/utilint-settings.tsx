@@ -62,56 +62,58 @@ export function UtilintSettings() {
           )}
         </div>
       )}
-      <details className="mt-6" open={!connection.data?.configured}>
-        <summary className="cursor-pointer text-sm font-medium">Developer setup</summary>
-        <p className="mt-4 text-sm leading-6 text-muted-foreground">
-          Register Content Use in your utilint developer dashboard, then paste the client ID and
-          secret below. Use this callback URL:
-        </p>
-        <code className="mt-3 block break-all rounded-lg bg-muted p-3 text-xs">
-          {connection.data?.callback}
-        </code>
-        <form
-          className="mt-5 space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void form.handleSubmit();
-          }}
-        >
-          {(['origin', 'clientId', 'clientSecret'] as const).map((name) => (
-            <form.Field name={name} key={name}>
-              {(field) => (
-                <div>
-                  <label className="text-sm" htmlFor={`utilint-${name}`}>
-                    {name === 'origin'
-                      ? 'utilint URL'
-                      : name === 'clientId'
-                        ? 'Client ID'
-                        : 'Client secret'}
-                  </label>
-                  <Input
-                    className="mt-2"
-                    id={`utilint-${name}`}
-                    type={name === 'clientSecret' ? 'password' : 'text'}
-                    required
-                    autoComplete="off"
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                  />
-                </div>
-              )}
-            </form.Field>
-          ))}
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? 'Saving…' : 'Save utilint app'}
-          </Button>
-          {save.isSuccess && (
-            <p role="status" className="text-sm">
-              App saved. Connect utilint to authorize access.
-            </p>
-          )}
-        </form>
-      </details>
+      {connection.data && !connection.data.connected && (
+        <details className="mt-6" open={!connection.data.configured}>
+          <summary className="cursor-pointer text-sm font-medium">Developer setup</summary>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            Register Content Use in your utilint developer dashboard, then paste the client ID and
+            secret below. Use this callback URL:
+          </p>
+          <code className="mt-3 block break-all rounded-lg bg-muted p-3 text-xs">
+            {connection.data?.callback}
+          </code>
+          <form
+            className="mt-5 space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit();
+            }}
+          >
+            {(['origin', 'clientId', 'clientSecret'] as const).map((name) => (
+              <form.Field name={name} key={name}>
+                {(field) => (
+                  <div>
+                    <label className="text-sm" htmlFor={`utilint-${name}`}>
+                      {name === 'origin'
+                        ? 'utilint URL'
+                        : name === 'clientId'
+                          ? 'Client ID'
+                          : 'Client secret'}
+                    </label>
+                    <Input
+                      className="mt-2"
+                      id={`utilint-${name}`}
+                      type={name === 'clientSecret' ? 'password' : 'text'}
+                      required
+                      autoComplete="off"
+                      value={field.state.value}
+                      onChange={(event) => field.handleChange(event.target.value)}
+                    />
+                  </div>
+                )}
+              </form.Field>
+            ))}
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending ? 'Saving…' : 'Save utilint app'}
+            </Button>
+            {save.isSuccess && (
+              <p role="status" className="text-sm">
+                App saved. Connect utilint to authorize access.
+              </p>
+            )}
+          </form>
+        </details>
+      )}
     </section>
   );
 }

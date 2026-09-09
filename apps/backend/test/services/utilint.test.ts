@@ -148,6 +148,15 @@ test('encrypted, owner-bound credentials survive service restart; concurrent ref
     expect((await first).summary.text).toBe('A faithful summary.');
     expect(f.state.refreshes).toBe(1);
     expect(f.state.calls).toBe(1);
+    const duplicate = await f.service.generate({ ownerId: 'alice', id: 'rec-test' });
+    expect(duplicate.summary.text).toBe('A faithful summary.');
+    expect(f.state.calls).toBe(1);
+    await f.service.disconnect('alice');
+    expect((await restarted.generate({ ownerId: 'alice', id: 'rec-test' })).summary).toEqual(
+      duplicate.summary,
+    );
+    expect(f.state.calls).toBe(1);
+    await f.service.complete(f.actor, await f.begin());
     await f.records.edit({
       ownerId: 'alice',
       id: 'rec-test',

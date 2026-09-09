@@ -300,6 +300,10 @@ export function createUtilintService({
       }
       summaries.add(key);
       try {
+        const saved = await repository.summary(input.ownerId, input.id, hash(record.markdown));
+        if (saved) {
+          return { summary: saved };
+        }
         const catalog = (await (await gateway(input.ownerId, 'models')).json()) as {
           data?: { id: string }[];
         };

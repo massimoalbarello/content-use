@@ -130,7 +130,11 @@ export function RecordPage() {
               </div>
             )}
             <div className="mt-8">
-              <RecordSummary id={id} hasTranscript={Boolean(record.data.markdown)} />
+              <RecordSummary
+                id={id}
+                hasTranscript={Boolean(record.data.markdown)}
+                transcriptVersion={record.data.updatedAt}
+              />
             </div>
             <Captions
               key={record.data.updatedAt}

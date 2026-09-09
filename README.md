@@ -45,6 +45,7 @@ supported sources use yt-dlp. Sources without captions remain available to watch
 
 In **Settings → utilint**, register Content Use in your Utilint developer dashboard using the
 callback URL shown in Settings. Paste the client ID and one-time client secret, then save.
+Developer setup is hidden once connected; disconnect to change the app configuration.
 The default Utilint instance is `https://utilint-crrxrd.nibrun.app`; it can be changed for another
 self-hosted instance or localhost development.
 
@@ -62,7 +63,9 @@ and rotate the stored token. Provider revocation clears the local connection and
 reconnecting; **Manage app access** opens Utilint's revocation dashboard.
 
 Summaries are stored separately from captions, are invalidated when captions change, and are
-removed with their record. One generation per record can run at a time. Requests are not retried
+removed with their record. Saved summaries show a green **Summarized** check. Repeated requests
+return the saved summary without another model call, even after a restart or disconnect. One
+generation per record can run at a time. Requests are not retried
 automatically. This version supports transcripts up to 120 KB and uses the first available model
 from the user's Utilint model catalog, with a 1,500-token output target. A subscription request is
 subject to the user's ChatGPT allowance and availability; there is no paid API fallback.

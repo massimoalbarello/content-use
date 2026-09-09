@@ -4,9 +4,9 @@ export const utilintOptions = queryOptions({
   queryKey: ['utilint'],
   queryFn: async () => unwrap(await api.utilint.get()),
 });
-export const summaryOptions = (id: string) =>
+export const summaryOptions = (id: string, transcriptVersion: string) =>
   queryOptions({
-    queryKey: ['summaries', id],
+    queryKey: ['summaries', id, transcriptVersion],
     queryFn: async () => unwrap(await api.records({ id }).summary.get()),
   });
 export const generateSummary = async (id: string) =>
