@@ -2,10 +2,12 @@ import { Elysia } from 'elysia';
 import type { Auth } from '#lib/auth/better-auth.ts';
 import { DomainError } from '#models/records.ts';
 import { createApi } from '#routes/api/controller.ts';
+import { utilintRoutes } from '#routes/utilint/controller.ts';
 import type { AccountsService } from '#services/accounts/service.ts';
 import type { OwnerRegistrationService } from '#services/owner-registration/service.ts';
 import type { PlaylistsService } from '#services/playlists/service.ts';
 import type { RecordsService } from '#services/records/service.ts';
+import type { UtilintService } from '#services/utilint/service.ts';
 export function createApp({
   auth,
   records,
@@ -13,6 +15,7 @@ export function createApp({
   playlists,
   accounts,
   origin,
+  utilint,
   assets = new Map<string, string>(),
 }: {
   auth: Auth;
@@ -21,6 +24,7 @@ export function createApp({
   playlists: PlaylistsService;
   accounts: AccountsService;
   origin: string;
+  utilint: UtilintService;
   assets?: Map<string, string>;
 }) {
   return new Elysia({ serve: { maxRequestBodySize: 2 * 1024 * 1024, idleTimeout: 120 } })
@@ -48,6 +52,7 @@ export function createApp({
     .get('/api/auth/*', ({ request }) => auth.handler(request), { parse: 'none' })
     .post('/api/auth/*', ({ request }) => auth.handler(request), { parse: 'none' })
     .use(createApi({ auth, records, playlists, accounts, origin }))
+    .use(utilintRoutes({ auth, utilint, origin }))
     .get('/*', ({ path }) => {
       if (path.startsWith('/api/')) {
         return new Response('Not found', { status: 404 });

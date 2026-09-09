@@ -40,3 +40,33 @@ bun run deploy:nibrun
 The deploy script remembers the app slug in `.nibrun.json` and reuses it on subsequent deployments.
 YouTube uses embeds and [FreeTranscriptAPI](https://freetranscriptapi.com/docs) captions. Other
 supported sources use yt-dlp. Sources without captions remain available to watch.
+
+## Summaries with utilint
+
+In **Settings → utilint**, register Content Use in your Utilint developer dashboard using the
+callback URL shown in Settings. Paste the client ID and one-time client secret, then save.
+The default Utilint instance is `https://utilint-crrxrd.nibrun.app`; it can be changed for another
+self-hosted instance or localhost development.
+
+Click **Summarize** beside a dashboard record or on its record page. If needed, a Utilint popup
+walks through passkey signup, connecting ChatGPT, and authorizing Content Use. The summary starts
+when the popup finishes. If popups are blocked, the flow opens in the current tab; return to the
+record and click Summarize. Returning users skip completed steps and see an already-authorized
+message. The transcript and generated summary are private to the Content Use owner.
+
+The backend exchanges the authorization code using oauth4webapi, validates state and issuer,
+and stores the client secret and user tokens with authenticated encryption derived from the
+instance's existing auth secret. No Utilint token is returned to the browser. Pending flows are
+session-bound, single-use, and expire after 10 minutes (or a server restart). Refreshes serialize
+and rotate the stored token. Provider revocation clears the local connection and requires
+reconnecting; **Manage app access** opens Utilint's revocation dashboard.
+
+Summaries are stored separately from captions, are invalidated when captions change, and are
+removed with their record. One generation per record can run at a time. Requests are not retried
+automatically. This version supports transcripts up to 120 KB and uses the first available model
+from the user's Utilint model catalog, with a 1,500-token output target. A subscription request is
+subject to the user's ChatGPT allowance and availability; there is no paid API fallback.
+
+Content Use's auth cookie now has its own prefix so local apps on different ports cannot replace
+one another's sessions. Existing installations may require one sign-in after this update; their
+passkeys and library are preserved.

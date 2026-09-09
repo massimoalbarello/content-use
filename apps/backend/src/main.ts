@@ -10,18 +10,21 @@ import { HostedCaptions } from './lib/media/hosted-captions';
 import { MediaPipeline } from './lib/media/pipeline';
 import { YoutubePlaylists } from './lib/media/playlists';
 import { validatePublicUrl } from './lib/media/public-url';
+import { createUtilintVault } from './lib/utilint-vault';
 import { SqliteAccountsRepository } from './repositories/accounts/repository';
 import { SqliteCaptionQuota } from './repositories/jobs/quota';
 import { SqliteJobsRepository } from './repositories/jobs/repository';
 import { SqliteOwnerRegistrationRepository } from './repositories/owner-registration/repository';
 import { SqlitePlaylistsRepository } from './repositories/playlists/repository';
 import { SqliteRecordsRepository } from './repositories/records/repository';
+import { SqliteUtilintRepository } from './repositories/utilint/repository';
 import { AccountsService } from './services/accounts/service';
 import { RecordProcessor } from './services/jobs/processor';
 import { JobWorker } from './services/jobs/worker';
 import { OwnerRegistrationService } from './services/owner-registration/service';
 import { PlaylistsService } from './services/playlists/service';
 import { RecordsService } from './services/records/service';
+import { createUtilintService } from './services/utilint/service';
 
 const dataFolder = resolve(process.env.NIBRUN_DATA_DIR ?? process.env.DATA_FOLDER ?? './data');
 const port = Number(process.env.PORT ?? 3000);
@@ -58,6 +61,12 @@ const accounts = new AccountsService(
   jobs,
 );
 const records = new RecordsService(repository, jobs, validatePublicUrl);
+const utilint = createUtilintService({
+  repository: new SqliteUtilintRepository(database),
+  records: repository,
+  vault: createUtilintVault(secret.value),
+  origin,
+});
 const registration = new OwnerRegistrationService(new SqliteOwnerRegistrationRepository(database));
 void pipeline
   .prepare()
@@ -69,7 +78,16 @@ void pipeline
     ),
   );
 await jobs.start(dataFolder);
-const app = createApp({ auth, records, registration, playlists, accounts, origin, assets }).listen({
+const app = createApp({
+  auth,
+  records,
+  registration,
+  playlists,
+  accounts,
+  origin,
+  assets,
+  utilint,
+}).listen({
   hostname: '0.0.0.0',
   port,
 });

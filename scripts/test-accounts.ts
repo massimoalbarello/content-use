@@ -9,15 +9,18 @@ import { createSqliteDatabase } from '../apps/backend/src/db/client';
 import { migrate } from '../apps/backend/src/db/migrate';
 import { createAuth } from '../apps/backend/src/lib/auth/better-auth';
 import { validatePublicUrl } from '../apps/backend/src/lib/media/public-url';
+import { createUtilintVault } from '../apps/backend/src/lib/utilint-vault';
 import type { AccountDiscovery } from '../apps/backend/src/models/accounts';
 import { SqliteAccountsRepository } from '../apps/backend/src/repositories/accounts/repository';
 import { SqliteOwnerRegistrationRepository } from '../apps/backend/src/repositories/owner-registration/repository';
 import { SqlitePlaylistsRepository } from '../apps/backend/src/repositories/playlists/repository';
 import { SqliteRecordsRepository } from '../apps/backend/src/repositories/records/repository';
+import { SqliteUtilintRepository } from '../apps/backend/src/repositories/utilint/repository';
 import { AccountsService } from '../apps/backend/src/services/accounts/service';
 import { OwnerRegistrationService } from '../apps/backend/src/services/owner-registration/service';
 import { PlaylistsService } from '../apps/backend/src/services/playlists/service';
 import { RecordsService } from '../apps/backend/src/services/records/service';
+import { createUtilintService } from '../apps/backend/src/services/utilint/service';
 
 const dataFolder = await mkdtemp(join(tmpdir(), 'content-use-accounts-e2e-'));
 const db = await createSqliteDatabase({ dataFolder });
@@ -66,7 +69,14 @@ try {
       );
     },
   };
+  const records = new RecordsService(new SqliteRecordsRepository(db), jobs, validatePublicUrl);
   app = createApp({
+    utilint: createUtilintService({
+      repository: new SqliteUtilintRepository(db),
+      records: new SqliteRecordsRepository(db),
+      origin: base,
+      vault: createUtilintVault(crypto.randomUUID().repeat(2)),
+    }),
     origin: base,
     assets,
     auth: createAuth({
@@ -77,7 +87,7 @@ try {
     registration: new OwnerRegistrationService(new SqliteOwnerRegistrationRepository(db)),
     accounts: new AccountsService(new SqliteAccountsRepository(db), playlists, discovery, jobs),
     playlists: new PlaylistsService(playlists, jobs),
-    records: new RecordsService(new SqliteRecordsRepository(db), jobs, validatePublicUrl),
+    records,
   }).listen({ hostname: '127.0.0.1', port: 3110 });
   assert.equal((await fetch(`${base}/api/accounts`)).status, 401);
   browser = await chromium.launch({

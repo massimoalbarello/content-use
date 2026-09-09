@@ -18,6 +18,7 @@ import { ErrorNotice, Loading } from '../components/layout/states';
 import { DeleteRecord } from '../components/records/delete-record';
 import { PlaylistTags } from '../components/records/playlist-tags';
 import { durationLabel, Status } from '../components/records/status';
+import { RecordSummary } from '../components/records/summary';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
@@ -128,6 +129,9 @@ export function RecordPage() {
                 {record.data.progress}
               </div>
             )}
+            <div className="mt-8">
+              <RecordSummary id={id} hasTranscript={Boolean(record.data.markdown)} />
+            </div>
             <Captions
               key={record.data.updatedAt}
               markdown={record.data.markdown}

@@ -4,6 +4,7 @@ import { AudioLines, Film } from 'lucide-react';
 import { useState } from 'react';
 import { PlaylistTags } from './playlist-tags';
 import { durationLabel, Status } from './status';
+import { RecordSummary as SummaryAction } from './summary';
 
 function RecordThumbnail({ record }: { record: RecordSummary }) {
   const [failed, setFailed] = useState(false);
@@ -87,6 +88,7 @@ export function RecordList({ records }: { records: RecordSummary[] }) {
               day: 'numeric',
             })}
           </span>
+          <SummaryAction id={record.id} hasTranscript={record.hasTranscript} />
         </div>
       ))}
     </div>

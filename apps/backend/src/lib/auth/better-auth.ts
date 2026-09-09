@@ -115,6 +115,7 @@ export function createAuthOptions({
       }),
     ],
     advanced: {
+      cookiePrefix: 'content-use',
       database: {
         generateId: () => Bun.randomUUIDv7(),
       },
