@@ -2,7 +2,10 @@
 
 This policy supplements the [root engineering principles](./AGENTS.md).
 
-Content Use is beta software. Keep local development data disposable, while preserving data and
-identity in deployed instances. Once a migration has run on a deployed instance, its contents and
-identity are immutable. Introduce subsequent migrations for schema changes and verify preservation
-of records, passkeys, settings, and transcript checkpoints before redeploying.
+During the current beta phase, existing migrations may be edited in place. Do not introduce a new
+migration solely to preserve migration history; migration immutability is not required for now.
+
+Keep local development data disposable, while preserving data and identity in deployed instances.
+Editing an already-applied migration does not reapply it to an existing database. Account for the
+deployed schema when redeploying and verify preservation of records, passkeys, settings, and
+transcript checkpoints.

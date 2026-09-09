@@ -13,8 +13,8 @@ unexpected or ambiguous, and do not add speculative schema or migration machiner
 - Give each migration one schema concern. Keep it deterministic and transactional where the engine
   permits, and never make it depend on an external service or the current contents of application
   tables.
-- Once a migration has been applied to a persistent shared environment, its identity and contents
-  are immutable. Disposable local databases do not establish compatibility history.
+- Follow the [beta compatibility policy](../../../../BETA-COMPATIBILITY.md) when deciding whether
+  to edit an existing migration or introduce a new one.
 - Keep migration history and engine-specific constraints with the adapter that owns them. Do not
   force adapters into a shared lowest-common-denominator schema or dialect conditionals.
 
