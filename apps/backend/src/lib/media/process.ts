@@ -1,5 +1,4 @@
 import { readdir, stat } from 'node:fs/promises';
-import { dirname } from 'node:path';
 export async function runMediaProcess({
   command,
   cwd,
@@ -22,7 +21,6 @@ export async function runMediaProcess({
       TMPDIR: cwd,
       XDG_CACHE_HOME: cwd,
       LANG: 'C.UTF-8',
-      LD_LIBRARY_PATH: dirname(command[0]!),
       BUN_BE_BUN: '1',
     },
     stdin: 'ignore',

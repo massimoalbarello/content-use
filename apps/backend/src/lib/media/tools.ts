@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { chmod, mkdir, rename } from 'node:fs/promises';
 import { join } from 'node:path';
-import zlibPath from '../../../native/libz.so.1' with { type: 'file' };
 
 const tools = {
   'yt-dlp': {
@@ -16,9 +15,6 @@ const tools = {
 export async function installMediaTools(dataFolder: string) {
   const folder = join(dataFolder, 'tools');
   await mkdir(folder, { recursive: true });
-  if (process.platform === 'linux') {
-    await Bun.write(join(folder, 'libz.so.1'), Bun.file(zlibPath));
-  }
   const result: Record<string, string> = {};
   for (const [name, tool] of Object.entries(tools)) {
     if (process.platform !== 'linux') {
