@@ -1,11 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { LoaderCircle, Plus, Search, X } from 'lucide-react';
 import { ErrorNotice } from '../components/layout/states';
 import { EmptyLibrary } from '../components/records/empty-library';
 import { RecordFilters } from '../components/records/record-filters';
 import { RecordList, RecordListSkeleton } from '../components/records/record-list';
-import { RecordPagination } from '../components/records/record-pagination';
+import { RecordLoadMore } from '../components/records/record-load-more';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { recordsOptions } from '../lib/queries';
@@ -13,10 +13,10 @@ import { dashboardRoute } from '../router';
 export function Dashboard() {
   const search = dashboardRoute.useSearch();
   const navigate = useNavigate({ from: '/' });
-  const records = useQuery(recordsOptions(search.q, search.offset, search.status));
+  const records = useInfiniteQuery(recordsOptions(search.q, search.status));
   const total = records.data?.total;
-  const changeSearch = (q: string, offset = 0) => {
-    void navigate({ search: { ...search, q, offset }, replace: true });
+  const changeSearch = (q: string) => {
+    void navigate({ search: { ...search, q }, replace: true });
   };
   return (
     <div className="mx-auto max-w-6xl px-6 py-10 sm:px-12 lg:py-14">
@@ -75,10 +75,10 @@ export function Dashboard() {
       </div>
       <RecordFilters
         value={search.status ?? 'all'}
-        onChange={(status) => void navigate({ search: { ...search, status, offset: 0 } })}
+        onChange={(status) => void navigate({ search: { ...search, status } })}
       />
-      <ErrorNotice error={records.error} />
-      {records.error && (
+      <ErrorNotice error={records.isFetchNextPageError ? null : records.error} />
+      {records.error && !records.isFetchNextPageError && (
         <Button variant="outline" onClick={() => void records.refetch()}>
           Try again
         </Button>
@@ -92,42 +92,40 @@ export function Dashboard() {
           !records.error && (
             <LibraryEmptyState
               filtered={Boolean(search.q || (search.status && search.status !== 'all'))}
-              paged={search.offset > 0}
-              onReset={() => void navigate({ search: { q: '', offset: 0 } })}
+              onReset={() => void navigate({ search: { q: '' } })}
               onCreate={() => void navigate({ to: '/new' })}
             />
           )
         )}
       </div>
-      <RecordPagination
-        total={total}
-        offset={search.offset}
-        pending={records.isPlaceholderData}
-        onChange={(offset) => changeSearch(search.q, offset)}
+      <RecordLoadMore
+        hasMore={records.hasNextPage}
+        busy={records.isFetching}
+        loading={records.isFetchingNextPage}
+        error={records.isFetchNextPageError ? records.error : null}
+        onLoadMore={() => void records.fetchNextPage({ cancelRefetch: false })}
       />
     </div>
   );
 }
 function LibraryEmptyState({
   filtered,
-  paged,
   onReset,
   onCreate,
 }: {
   filtered: boolean;
-  paged: boolean;
   onReset: () => void;
   onCreate: () => void;
 }) {
-  if (!filtered && !paged) {
+  if (!filtered) {
     return <EmptyLibrary onCreate={onCreate} />;
   }
   return (
     <div className="py-16 text-center">
       <Search className="mx-auto mb-5 size-7 text-muted-foreground" strokeWidth={1.5} />
-      <h2 className="font-medium">{filtered ? 'No matching records' : 'No more records'}</h2>
+      <h2 className="font-medium">No matching records</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        {filtered ? 'Try another title or phrase from captions.' : 'Return to your library.'}
+        Try another title or phrase from captions.
       </p>
       <Button variant="outline" className="mt-5" onClick={onReset}>
         Show all records

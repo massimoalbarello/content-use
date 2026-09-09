@@ -1,5 +1,5 @@
 import type { RecordFilter } from '@repo/backend/record';
-import { keepPreviousData, queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 import { api, unwrap } from './api';
 import { authClient } from './auth';
 export const sessionOptions = queryOptions({
@@ -17,18 +17,31 @@ export const ownerOptions = queryOptions({
   queryKey: ['owner'],
   queryFn: async () => unwrap(await api['owner-registration'].get()),
 });
-export const recordsOptions = (
-  search = '',
-  offset = 0,
-  status: RecordFilter = 'all',
-  playlistId?: string,
-) =>
-  queryOptions({
-    queryKey: ['records', 'list', search, offset, status, playlistId],
-    placeholderData: keepPreviousData,
-    queryFn: async () =>
-      unwrap(await api.records.get({ query: { search, offset, status, playlistId } })),
-    refetchInterval: 5000,
+export const recordsOptions = (search = '', status: RecordFilter = 'all', playlistId?: string) =>
+  infiniteQueryOptions({
+    queryKey: ['records', 'infinite', search, status, playlistId],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam, signal }) =>
+      unwrap(
+        await api.records.get({
+          query: { search, offset: pageParam, status, playlistId },
+          fetch: { signal },
+        }),
+      ),
+    getNextPageParam: (last, _pages, offset) => {
+      const next = offset + last.records.length;
+      return last.records.length && next < last.total ? next : undefined;
+    },
+    select: (data) => ({
+      ...data,
+      records: [
+        ...new Map(
+          data.pages.flatMap((page) => page.records).map((record) => [record.id, record]),
+        ).values(),
+      ],
+      total: data.pages[0]?.total ?? 0,
+    }),
+    refetchInterval: (query) => (query.state.status === 'error' ? false : 5000),
   });
 export const recordOptions = (id: string) =>
   queryOptions({

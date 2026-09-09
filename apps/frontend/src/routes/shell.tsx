@@ -51,7 +51,7 @@ export function Shell() {
         Skip to content
       </a>
       <aside className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-sidebar p-5 md:sticky md:top-0 md:h-screen md:flex-col md:items-stretch md:justify-start md:border-b-0 md:border-r md:px-5 md:py-8">
-        <Link to="/" search={{ q: '', offset: 0 }} aria-label="Content Use home">
+        <Link to="/" search={{ q: '' }} aria-label="Content Use home">
           <Brand />
         </Link>
         <div className="hidden mt-10 mb-3 text-[10px] uppercase tracking-widest text-muted-foreground md:block">
@@ -63,7 +63,7 @@ export function Shell() {
         >
           <Link
             to="/"
-            search={{ q: '', offset: 0 }}
+            search={{ q: '' }}
             activeOptions={{ exact: true, includeSearch: false }}
             activeProps={{ className: 'bg-sidebar-accent font-medium text-foreground' }}
             className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground"

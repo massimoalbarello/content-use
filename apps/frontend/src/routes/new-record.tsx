@@ -22,7 +22,7 @@ export function NewRecord() {
         await navigate({
           to: '/playlists/$id',
           params: { id: record.id },
-          search: { q: '', offset: 0 },
+          search: { q: '' },
         });
       } else {
         await navigate({ to: '/records/$id', params: { id: record.id } });
@@ -39,7 +39,7 @@ export function NewRecord() {
     <div className="mx-auto max-w-3xl px-6 py-10 sm:px-12 lg:py-14">
       <Link
         to="/"
-        search={{ q: '', offset: 0 }}
+        search={{ q: '' }}
         className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft size={14} />

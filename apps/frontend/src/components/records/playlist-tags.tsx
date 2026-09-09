@@ -13,7 +13,7 @@ export function PlaylistTags({ playlists }: { playlists: PlaylistLink[] }) {
           key={playlist.id}
           to="/playlists/$id"
           params={{ id: playlist.id }}
-          search={{ q: '', offset: 0 }}
+          search={{ q: '' }}
           title={playlist.title}
           className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted/70 px-2 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
         >

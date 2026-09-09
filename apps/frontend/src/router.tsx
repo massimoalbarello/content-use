@@ -8,11 +8,8 @@ import {
 } from '@tanstack/react-router';
 import { Shell } from './routes/shell';
 
-const recordSearch = (
-  search: Record<string, unknown>,
-): { q: string; offset: number; status?: RecordFilter } => ({
+const recordSearch = (search: Record<string, unknown>): { q: string; status?: RecordFilter } => ({
   q: typeof search.q === 'string' ? search.q.slice(0, 200) : '',
-  offset: Math.floor(Math.max(0, Math.min(1000000, Number(search.offset) || 0))),
   status: RECORD_FILTERS.includes(search.status as RecordFilter)
     ? (search.status as RecordFilter)
     : undefined,
@@ -22,7 +19,7 @@ const root = createRootRoute({
   notFoundComponent: () => (
     <div className="p-12">
       <h1 className="text-2xl">Page not found</h1>
-      <Link to="/" search={{ q: '', offset: 0 }} className="mt-5 block underline">
+      <Link to="/" search={{ q: '' }} className="mt-5 block underline">
         Back to records
       </Link>
     </div>
@@ -76,6 +73,7 @@ export const accountRoute = createRoute({
   component: lazyRouteComponent(() => import('./routes/account'), 'AccountPage'),
 });
 export const router = createRouter({
+  scrollRestoration: true,
   routeTree: root.addChildren([
     dashboardRoute,
     newRoute,

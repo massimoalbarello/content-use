@@ -156,7 +156,7 @@ export function AccountPlaylists({ id }: { id: string }) {
                                 <Link
                                   to="/playlists/$id"
                                   params={{ id: saved.id }}
-                                  search={{ q: '', offset: 0 }}
+                                  search={{ q: '' }}
                                   className="hover:underline"
                                 >
                                   {saved.enabled

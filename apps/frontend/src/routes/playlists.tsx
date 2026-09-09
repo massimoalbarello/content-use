@@ -53,7 +53,7 @@ export function PlaylistsPage() {
                     <Link
                       to="/playlists/$id"
                       params={{ id: playlist.id }}
-                      search={{ q: '', offset: 0 }}
+                      search={{ q: '' }}
                       className="line-clamp-2 break-words font-medium hover:underline"
                     >
                       {playlist.title}

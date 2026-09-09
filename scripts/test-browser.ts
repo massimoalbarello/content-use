@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from 'playwright-core';
+import { testRecordScroll } from './test-record-scroll';
 
 const dataFolder = await mkdtemp(join(tmpdir(), 'content-use-e2e-'));
 const port = 3100;
@@ -57,6 +58,7 @@ try {
   await page.getByRole('button', { name: 'Create your passkey' }).click();
   await page.getByRole('heading', { name: 'Records', exact: true }).waitFor({ timeout: 20000 });
   console.log('PASS real WebAuthn registration and authenticated dashboard');
+  await testRecordScroll(page);
   await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
   await page.getByLabel('Source URL').fill('http://127.0.0.1/private');
   await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();

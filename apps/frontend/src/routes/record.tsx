@@ -34,7 +34,7 @@ export function RecordPage() {
     mutationFn: async () => unwrap(await api.records({ id }).delete()),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['records'] });
-      await navigate({ to: '/', search: { q: '', offset: 0 } });
+      await navigate({ to: '/', search: { q: '' } });
     },
   });
   const retry = useMutation({
@@ -50,7 +50,7 @@ export function RecordPage() {
     <div className="mx-auto max-w-4xl px-6 py-10 sm:px-12 lg:py-14">
       <Link
         to="/"
-        search={{ q: '', offset: 0 }}
+        search={{ q: '' }}
         className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft size={14} />
