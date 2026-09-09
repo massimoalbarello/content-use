@@ -3,7 +3,6 @@ import { RECORD_FILTERS } from '#models/records.ts';
 export const RecordParams = t.Object({ id: t.String({ pattern: '^rec-[0-9a-f-]{36}$' }) });
 export const CreateRecord = t.Object({
   url: t.String({ minLength: 1, maxLength: 4096 }),
-  title: t.Optional(t.String({ maxLength: 300 })),
 });
 export const EditRecord = t.Object({
   title: t.String({ minLength: 1, maxLength: 300, pattern: '.*\\S.*' }),

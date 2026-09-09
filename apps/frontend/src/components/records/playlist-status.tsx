@@ -21,7 +21,7 @@ export function PlaylistStatus({ playlist }: { playlist: View }) {
             <DateLabel value={playlist.nextCheckAt} upcoming />
           )}
         </Metric>
-        <Metric label="Transcripts waiting">
+        <Metric label="Captions waiting">
           {playlist.pendingCount.toLocaleString()}
           {playlist.activeCount > 0 && (
             <span className="ml-1 font-normal text-muted-foreground">
@@ -29,7 +29,7 @@ export function PlaylistStatus({ playlist }: { playlist: View }) {
             </span>
           )}
         </Metric>
-        <Metric label="Transcript errors">
+        <Metric label="Captions errors">
           <span className={playlist.failedCount ? 'text-destructive' : undefined}>
             {playlist.failedCount.toLocaleString()}
           </span>
@@ -51,7 +51,7 @@ export function PlaylistStatus({ playlist }: { playlist: View }) {
       )}
       {playlist.retryAt && playlist.pendingCount > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
-          Next transcript retry: <DateLabel value={playlist.retryAt} upcoming />. Waiting records
+          Next captions retry: <DateLabel value={playlist.retryAt} upcoming />. Waiting records
           resume automatically.
         </p>
       )}

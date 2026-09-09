@@ -198,6 +198,6 @@ export class SqliteRecordsRepository implements RecordsRepository {
   }
   async finish({ ownerId, id, markdown }: Actor & { id: string; markdown: string }) {
     await this
-      .db`UPDATE records SET markdown=${markdown},status='ready',progress='Transcript ready',error=NULL,updated_at=${new Date().toISOString()} WHERE owner_id=${ownerId} AND id=${id}`;
+      .db`UPDATE records SET markdown=${markdown},status='ready',progress='Captions ready',error=NULL,updated_at=${new Date().toISOString()} WHERE owner_id=${ownerId} AND id=${id}`;
   }
 }

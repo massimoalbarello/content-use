@@ -30,11 +30,11 @@ try {
   await page.goto(base);
   await page.getByRole('button', { name: 'Create your passkey', exact: true }).click();
   await page.getByRole('heading', { name: 'Records', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'New record', exact: true }).click();
+  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
   await page
     .getByLabel('Source URL')
     .fill('https://www.youtube.com/playlist?list=PLZHQObOWTQDMsr9K-rj53DwVRMYO3t5Yr');
-  await page.getByRole('button', { name: 'Create record', exact: true }).click();
+  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
   await page
     .getByRole('heading', { name: 'Essence of calculus', exact: true })
     .waitFor({ timeout: 120000 });

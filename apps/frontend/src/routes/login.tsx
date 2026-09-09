@@ -83,7 +83,7 @@ export function Login() {
             </div>
             <h2 className="text-lg font-medium tracking-tight">The original, and every word.</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Play the recording. Read the transcript.
+              Play the recording. Read the captions.
               <br />
               Edit, search, and take it with you as Markdown.
             </p>
@@ -98,7 +98,7 @@ export function Login() {
             </div>
             <div className="mt-8 flex items-center justify-between border-t border-border pt-4 text-[11px] text-muted-foreground">
               <span>01 — Source</span>
-              <span>02 — Transcript</span>
+              <span>02 — Captions</span>
               <span>03 — Yours</span>
             </div>
           </div>

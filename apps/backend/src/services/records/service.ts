@@ -39,7 +39,7 @@ export class RecordsService {
     const links = await this.repository.playlistLinks({ ownerId: input.ownerId, ids: [input.id] });
     return publicRecord(record, links.get(input.id));
   }
-  async create({ ownerId, url, title }: Actor & { url: string; title?: string }) {
+  async create({ ownerId, url }: Actor & { url: string }) {
     if (playlistUrl(url)) {
       throw new DomainError('Add this link as a playlist to import all its videos.');
     }
@@ -48,7 +48,7 @@ export class RecordsService {
       ownerId,
       id: `rec-${crypto.randomUUID()}`,
       url: safeUrl,
-      title: title?.trim() || safeUrl,
+      title: safeUrl,
     });
     this.jobs.wake();
     return publicRecord(record);

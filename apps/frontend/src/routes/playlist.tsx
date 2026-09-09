@@ -63,7 +63,7 @@ export function PlaylistPage() {
               aria-label="Search synced records"
               type="search"
               maxLength={200}
-              placeholder="Search records and transcripts…"
+              placeholder="Search records and captions…"
               className="mt-5 mb-4 max-w-md"
               value={search.q}
               onChange={(event) =>

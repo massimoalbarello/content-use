@@ -2,7 +2,7 @@
 
 [![Deploy on nibrun](https://nibrun.com/button.svg)](https://app.nibrun.com/deploy?name=content-use&binary=https%3A%2F%2Fgithub.com%2Fmassimoalbarello%2Fcontent-use%2Freleases%2Fdownload%2Fnibrun-latest%2Fcontent-use&port=3000&minimal)
 
-A private video and transcript library. Paste a public audio/video URL or YouTube playlist to
+A private library of videos and captions. Paste a public audio/video URL or YouTube playlist to
 create searchable Markdown records with embedded playback and source captions. Playlists sync
 hourly; bunqueue handles durable jobs and retries. Sign in with a passkey to manage your records.
 
@@ -36,4 +36,4 @@ bun run deploy:nibrun
 
 The deploy script remembers the app slug in `.nibrun.json` and reuses it on subsequent deployments.
 YouTube uses embeds and [FreeTranscriptAPI](https://freetranscriptapi.com/docs) captions. Other
-supported sources use yt-dlp. Sources without captions can receive an edited or imported transcript.
+supported sources use yt-dlp. Sources without captions remain available to watch.

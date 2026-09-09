@@ -42,7 +42,7 @@ export function Dashboard() {
           }}
         >
           <Plus size={16} />
-          New record
+          Get captions
         </Button>
       </div>
 
@@ -56,7 +56,7 @@ export function Dashboard() {
           aria-label="Search records"
           type="search"
           maxLength={200}
-          placeholder="Search records and transcripts…"
+          placeholder="Search records and captions…"
           className="h-10 pl-9 pr-10 bg-muted/30 border-transparent [&::-webkit-search-cancel-button]:appearance-none"
           value={search.q}
           onChange={(event) => changeSearch(event.target.value)}
@@ -127,7 +127,7 @@ function LibraryEmptyState({
       <Search className="mx-auto mb-5 size-7 text-muted-foreground" strokeWidth={1.5} />
       <h2 className="font-medium">{filtered ? 'No matching records' : 'No more records'}</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        {filtered ? 'Try another title or phrase from a transcript.' : 'Return to your library.'}
+        {filtered ? 'Try another title or phrase from captions.' : 'Return to your library.'}
       </p>
       <Button variant="outline" className="mt-5" onClick={onReset}>
         Show all records

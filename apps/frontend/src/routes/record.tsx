@@ -128,7 +128,7 @@ export function RecordPage() {
                 {record.data.progress}
               </div>
             )}
-            <Transcript
+            <Captions
               key={record.data.updatedAt}
               markdown={record.data.markdown}
               status={record.data.status}
@@ -204,14 +204,14 @@ function RecordMedia({ record }: { record: RecordView }) {
     </video>
   );
 }
-function Transcript({ markdown, status }: { markdown: string; status: string }) {
+function Captions({ markdown, status }: { markdown: string; status: string }) {
   const copy = useMutation({ mutationFn: () => navigator.clipboard.writeText(markdown) });
   const words = markdown.trim() ? markdown.trim().split(/\s+/).length : 0;
   return (
     <section className="mt-10 border-t border-border pt-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-medium tracking-tight">Transcript</h2>
+          <h2 className="text-lg font-medium tracking-tight">Captions</h2>
           {words > 0 && (
             <p className="mt-1 text-xs tabular-nums text-muted-foreground">
               {words.toLocaleString()} {words === 1 ? 'word' : 'words'}
@@ -245,7 +245,7 @@ function Transcript({ markdown, status }: { markdown: string; status: string }) 
       ) : (
         <p className="text-sm leading-6 text-muted-foreground">
           {status === 'failed'
-            ? 'Retry when the source is available, or add a transcript with Edit record.'
+            ? 'Retry when the source is available, or add captions with Edit record.'
             : status === 'ready'
               ? 'No captions available.'
               : 'Looking for captions from the original source…'}
@@ -311,11 +311,11 @@ function RecordEditor({ record, onClose }: { record: RecordView; onClose: () => 
       <form.Field name="markdown">
         {(field) => (
           <div className="mt-8">
-            <label htmlFor="edit-transcript" className="text-sm font-medium">
-              Transcript · Markdown
+            <label htmlFor="edit-captions" className="text-sm font-medium">
+              Captions · Markdown
             </label>
             <Textarea
-              id="edit-transcript"
+              id="edit-captions"
               className="mt-3 min-h-96 font-mono text-sm leading-7"
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}

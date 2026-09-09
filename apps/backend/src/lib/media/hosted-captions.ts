@@ -58,7 +58,7 @@ export class HostedCaptions {
     const dailyCap = errorCode === 'anonymous_daily_cap_exceeded';
     const blockedUntil = await this.quota?.observe(response.headers, response.status, dailyCap);
     if (response.status === 404 && errorCode === 'video_not_found') {
-      return { title: url, markdown: '', duration: null };
+      return { title: await this.videoTitle(url, parentSignal), markdown: '', duration: null };
     }
     if (!response.ok) {
       throw serviceError(response.status, blockedUntil);
@@ -72,6 +72,29 @@ export class HostedCaptions {
       markdown: captionMarkdown(result.transcript),
       duration: null,
     };
+  }
+  private async videoTitle(url: string, parentSignal: AbortSignal): Promise<string> {
+    const target = new URL('https://www.youtube.com/oembed');
+    target.searchParams.set(
+      'url',
+      `https://www.youtube.com/watch?v=${youtubeEmbed(url)!.split('/').at(-1)!}`,
+    );
+    target.searchParams.set('format', 'json');
+    try {
+      const response = await this.fetcher(target, {
+        redirect: 'error',
+        signal: AbortSignal.any([parentSignal, AbortSignal.timeout(10000)]),
+      });
+      if (response.ok) {
+        const metadata = await boundedJson(response);
+        if (typeof metadata.title === 'string' && metadata.title.trim()) {
+          return metadata.title.trim().slice(0, 300);
+        }
+      }
+    } catch {
+      parentSignal.throwIfAborted();
+    }
+    return url;
   }
 }
 function serviceError(status: number, blockedUntil?: number): CaptionServiceError {
@@ -112,7 +135,7 @@ async function boundedJson(response: Response): Promise<JsonObject> {
 }
 function captionMarkdown(content: unknown): string {
   if (!Array.isArray(content)) {
-    throw new Error('The caption service returned an invalid transcript.');
+    throw new Error('The caption service returned invalid captions.');
   }
   const events = content.map((segment: unknown) => {
     if (!segment || typeof segment !== 'object') {

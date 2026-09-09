@@ -74,7 +74,7 @@ export function recordMarkdown(record: ContentRecord): string {
     : embed
       ? `<iframe src="${embed}" title="YouTube video" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
       : '';
-  return `# ${title}\n\n[Original source](<${record.url}>)\n\n${player}\n\n## Transcript\n\n${record.markdown}\n`;
+  return `# ${title}\n\n[Original source](<${record.url}>)\n\n${player}\n\n## Captions\n\n${record.markdown}\n`;
 }
 
 export function youtubeEmbed(source: string): string | null {

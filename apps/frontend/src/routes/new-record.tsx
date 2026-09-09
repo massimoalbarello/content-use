@@ -11,7 +11,7 @@ export function NewRecord() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const create = useMutation({
-    mutationFn: async (value: { url: string; title: string }) =>
+    mutationFn: async (value: { url: string }) =>
       playlistUrl(value.url)
         ? { kind: 'playlist' as const, ...unwrap(await api.playlists.post(value)) }
         : { kind: 'record' as const, ...unwrap(await api.records.post(value)) },
@@ -30,7 +30,7 @@ export function NewRecord() {
     },
   });
   const form = useForm({
-    defaultValues: { url: '', title: '' },
+    defaultValues: { url: '' },
     onSubmit: async ({ value }) => {
       await create.mutateAsync(value).catch(() => {});
     },
@@ -53,7 +53,7 @@ export function NewRecord() {
       </p>
       <h1 className="mt-3 text-3xl font-medium tracking-tight">Start with a link.</h1>
       <p className="mt-3 max-w-lg text-sm leading-6 text-muted-foreground">
-        Save a video, audio link, or public YouTube playlist with its transcripts.
+        Save a video, audio link, or public YouTube playlist with its captions.
       </p>
       <form
         className="mt-9 space-y-6"
@@ -89,31 +89,13 @@ export function NewRecord() {
             </div>
           )}
         </form.Field>
-        <form.Field name="title">
-          {(field) => (
-            <div>
-              <label htmlFor="record-title" className="text-sm font-medium">
-                Title <span className="ml-1 font-normal text-muted-foreground">Optional</span>
-              </label>
-              <Input
-                id="record-title"
-                name="title"
-                maxLength={300}
-                className="mt-2 h-11"
-                placeholder="We’ll use the original title if you leave this blank"
-                value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
-              />
-            </div>
-          )}
-        </form.Field>
         <ErrorNotice error={create.error} />
         <div className="border-t border-border pt-6 flex flex-wrap justify-between items-center gap-4">
           <p className="text-xs text-muted-foreground">
             Captions are queued automatically, including when the service is busy.
           </p>
           <Button type="submit" className="h-10 px-4" disabled={create.isPending}>
-            {create.isPending ? 'Creating…' : 'Create record'}
+            {create.isPending ? 'Adding…' : 'Get captions'}
             <ArrowRight size={16} />
           </Button>
         </div>

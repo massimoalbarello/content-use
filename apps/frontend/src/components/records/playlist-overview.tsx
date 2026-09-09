@@ -47,7 +47,7 @@ export function PlaylistOverview({
         <PlaylistStatus playlist={playlist} />
         {!playlist.enabled && (
           <p className="mt-3 text-xs text-muted-foreground">
-            Your records stay available. Queued transcripts will still finish.
+            Your records stay available. Queued captions will still finish.
           </p>
         )}
       </section>

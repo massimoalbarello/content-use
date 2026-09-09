@@ -22,8 +22,8 @@ export function DeleteRecord({ onDelete, pending }: { onDelete: () => void; pend
       <AlertDialogContent>
         <AlertDialogTitle>Delete this record?</AlertDialogTitle>
         <AlertDialogDescription>
-          This permanently deletes the downloaded media and transcript. You can create a new record
-          from the original URL later.
+          This permanently deletes the downloaded media and captions. You can add the original URL
+          again later.
         </AlertDialogDescription>
         <AlertDialogFooter>
           <AlertDialogClose render={<Button variant="outline">Cancel</Button>} />

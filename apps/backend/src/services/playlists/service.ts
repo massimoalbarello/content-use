@@ -16,7 +16,7 @@ export class PlaylistsService {
     }
     return publicPlaylist(playlist);
   }
-  async create(input: Actor & { url: string; title?: string }) {
+  async create(input: Actor & { url: string }) {
     const source = playlistUrl(input.url);
     if (!source) {
       throw new DomainError('Use a public YouTube playlist URL.');
@@ -25,7 +25,7 @@ export class PlaylistsService {
       ...input,
       url: source.url,
       youtubeId: source.id,
-      title: input.title?.trim() || source.url,
+      title: source.url,
     });
     this.jobs.wake();
     return { id };

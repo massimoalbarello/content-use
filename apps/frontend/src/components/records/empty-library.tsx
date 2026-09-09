@@ -20,11 +20,11 @@ export function EmptyLibrary({ onCreate }: { onCreate: () => void }) {
         own.
       </p>
       <Button className="mt-6 h-10 px-4" onClick={onCreate}>
-        Create your first record
+        Get captions
         <ArrowUpRight size={16} />
       </Button>
       <p className="mt-5 text-xs text-muted-foreground">
-        One public URL. Media and transcript, together.
+        One public URL. Media and captions, together.
       </p>
     </section>
   );

@@ -57,17 +57,20 @@ try {
   await page.getByRole('button', { name: 'Create your passkey' }).click();
   await page.getByRole('heading', { name: 'Records', exact: true }).waitFor({ timeout: 20000 });
   console.log('PASS real WebAuthn registration and authenticated dashboard');
-  await page.getByRole('button', { name: 'New record', exact: true }).click();
+  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
   await page.getByLabel('Source URL').fill('http://127.0.0.1/private');
-  await page.getByRole('button', { name: 'Create record', exact: true }).click();
+  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
   await page.getByRole('alert').filter({ hasText: 'public' }).waitFor();
   await page
     .getByLabel('Source URL')
     .fill('https://raw.githubusercontent.com/ggml-org/whisper.cpp/master/samples/jfk.wav');
-  await page.getByLabel('Title').fill('A few words worth keeping');
-  await page.getByRole('button', { name: 'Create record', exact: true }).click();
-  await page.getByRole('heading', { name: 'A few words worth keeping' }).waitFor();
+  assert.equal(await page.getByLabel('Title', { exact: true }).count(), 0);
+  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
   await page.getByText('No captions available.', { exact: false }).waitFor({ timeout: 120000 });
+  await page.getByRole('button', { name: 'Edit record' }).click();
+  await page.getByLabel('Title', { exact: true }).fill('A few words worth keeping');
+  await page.getByRole('button', { name: 'Save record' }).click();
+  await page.getByRole('heading', { name: 'A few words worth keeping' }).waitFor();
   const recordUrl = page.url();
   const id = recordUrl.split('/').pop()!;
   const record = await page.evaluate(async (id) => (await fetch(`/api/records/${id}`)).json(), id);
@@ -84,9 +87,9 @@ try {
   console.log('PASS yt-dlp download, authenticated playback, range seeking, no-captions state');
   await page.getByRole('button', { name: 'Edit record' }).click();
   await page
-    .getByLabel('Transcript · Markdown')
+    .getByLabel('Captions · Markdown')
     .fill(
-      '## A thought to keep\n\nThis is an **edited Markdown record**.\n\n- Original media\n- Editable transcript',
+      '## A thought to keep\n\nThis is an **edited Markdown record**.\n\n- Original media\n- Editable captions',
     );
   await page.getByRole('button', { name: 'Save record' }).click();
   await page.getByRole('heading', { name: 'A thought to keep' }).waitFor();
@@ -101,7 +104,7 @@ try {
   await page.getByLabel('Search records').fill('edited Markdown');
   await page.getByRole('heading', { name: 'A few words worth keeping' }).waitFor();
   await page.screenshot({ path: '/tmp/content-use-dashboard.png', fullPage: true });
-  console.log('PASS record edit, Markdown rendering/export, and transcript search');
+  console.log('PASS record edit, Markdown rendering/export, and caption search');
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
@@ -109,9 +112,9 @@ try {
   );
   await page.screenshot({ path: '/tmp/content-use-mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.getByRole('button', { name: 'New record', exact: true }).click();
+  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
   await page.getByLabel('Source URL').fill('https://www.youtube.com/watch?v=rY0wnfFHYbs');
-  await page.getByRole('button', { name: 'Create record', exact: true }).click();
+  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
   await page
     .getByRole('heading', { name: 'Open Models Change The Economics of AI', exact: true })
     .waitFor({ timeout: 75000 });
@@ -125,7 +128,7 @@ try {
   assert.equal(youtube.embedUrl, 'https://www.youtube-nocookie.com/embed/rY0wnfFHYbs');
   assert.ok(
     youtube.markdown.split(/\s+/).length > 10000,
-    'New URL must retrieve the full transcript automatically',
+    'New URL must retrieve the full captions automatically',
   );
   await page.screenshot({ path: '/tmp/content-use-youtube-record.png' });
   await page.getByRole('button', { name: 'Delete record', exact: true }).click();

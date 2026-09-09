@@ -86,3 +86,39 @@ test('caps response size and propagates cancellation to network requests', async
   );
   await expect(client.fetch(url, controller.signal)).rejects.toThrow('Record deleted');
 });
+
+test('videos without captions get the source title without sending caption credentials to YouTube', async () => {
+  const client = new HostedCaptions('caption-secret', (target, init) => {
+    if (target.origin === 'https://api.freetranscriptapi.com') {
+      return Promise.resolve(
+        Response.json({ error: { code: 'video_not_found' } }, { status: 404 }),
+      );
+    }
+    expect(target.origin).toBe('https://www.youtube.com');
+    expect(target.pathname).toBe('/oembed');
+    expect(target.searchParams.get('url')).toBe(url);
+    expect(new Headers(init.headers).has('Authorization')).toBe(false);
+    return Promise.resolve(Response.json({ title: 'Source music title' }));
+  });
+  expect(await client.fetch(url, AbortSignal.timeout(5000))).toEqual({
+    title: 'Source music title',
+    markdown: '',
+    duration: null,
+  });
+});
+
+test('a title lookup failure does not turn missing captions back into a failure', async () => {
+  const client = new HostedCaptions(undefined, (target) => {
+    if (target.origin === 'https://api.freetranscriptapi.com') {
+      return Promise.resolve(
+        Response.json({ error: { code: 'video_not_found' } }, { status: 404 }),
+      );
+    }
+    return Promise.reject(new Error('YouTube unavailable'));
+  });
+  expect(await client.fetch(url, AbortSignal.timeout(5000))).toEqual({
+    title: url,
+    markdown: '',
+    duration: null,
+  });
+});
