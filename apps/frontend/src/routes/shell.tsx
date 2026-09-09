@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet } from '@tanstack/react-router';
-import { Library, ListVideo, LockKeyhole, LogOut, Plus, Settings2 } from 'lucide-react';
+import { Library, ListVideo, LockKeyhole, LogOut, Settings2 } from 'lucide-react';
 import { Brand } from '../components/layout/brand';
 import { ErrorNotice, Loading } from '../components/layout/states';
 import { Button } from '../components/ui/button';
@@ -88,13 +88,6 @@ export function Shell() {
             Settings
           </Link>
         </nav>
-        <Link
-          to="/new"
-          className="mt-4 hidden items-center justify-center gap-2 rounded-lg border border-sidebar-border px-3 py-2.5 text-sm transition-colors hover:bg-muted md:flex"
-        >
-          <Plus size={16} />
-          New record
-        </Link>
         <div className="md:mt-auto">
           <div className="mb-4 hidden items-center gap-2 px-3 text-xs text-muted-foreground md:flex">
             <LockKeyhole size={13} />
