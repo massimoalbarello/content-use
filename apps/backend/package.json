@@ -1,0 +1,26 @@
+{
+  "name": "@repo/backend",
+  "type": "module",
+  "private": true,
+  "imports": {
+    "#*": "./src/*"
+  },
+  "exports": {
+    "./types": "./src/types.ts",
+    "./record": "./src/models/records.ts",
+    "./playlist": "./src/models/playlists.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch src/main.ts"
+  },
+  "dependencies": {
+    "@better-auth/passkey": "^1.7.2",
+    "@ilbertt/better-auth-bun-sql": "^0.4.0",
+    "better-auth": "^1.7.2",
+    "bunqueue": "2.9.5",
+    "elysia": "^1.4.30",
+    "entities": "^8.1.0",
+    "ipaddr.js": "^2.3.0",
+    "subtitle": "^4.2.2"
+  }
+}
