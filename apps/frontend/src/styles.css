@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@import "./styles/minimal-neutral.css";
+@layer base {
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
+  a {
+    text-decoration: none;
+  }
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 4px;
+  }
+  button:not(:disabled),
+  select {
+    cursor: pointer;
+  }
+  ::selection {
+    background: var(--secondary);
+  }
+}
+@layer components {
+  .markdown {
+    font-size: 15px;
+    line-height: 1.95;
+    overflow-wrap: anywhere;
+  }
+  .markdown p {
+    margin-bottom: 1.3em;
+  }
+  .markdown h1,
+  .markdown h2,
+  .markdown h3 {
+    font-weight: 600;
+    line-height: 1.35;
+    margin: 1.5em 0 0.75em;
+  }
+  .markdown h1 {
+    font-size: 1.75em;
+  }
+  .markdown h2 {
+    font-size: 1.4em;
+  }
+  .markdown h3 {
+    font-size: 1.15em;
+  }
+  .markdown ul {
+    list-style: disc;
+    padding-left: 1.4em;
+    margin: 1em 0;
+  }
+  .markdown ol {
+    list-style: decimal;
+    padding-left: 1.4em;
+    margin: 1em 0;
+  }
+  .markdown a {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .markdown blockquote {
+    border-left: 2px solid var(--border);
+    padding-left: 1.5em;
+    color: var(--muted-foreground);
+  }
+  .markdown pre {
+    overflow-x: auto;
+    background: var(--muted);
+    padding: 1em;
+    border-radius: 0.5em;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+  .markdown code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+}

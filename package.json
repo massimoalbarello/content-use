@@ -1,0 +1,28 @@
+{
+  "name": "content-use",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --parallel --filter \"@repo/*\" dev",
+    "build": "bun run --filter @repo/frontend build && bun run scripts/build.ts",
+    "build:local": "BUILD_TARGET=host bun run build",
+    "check:types": "tsc --noEmit",
+    "check:codestyle": "biome check .",
+    "check:all": "bun run check:types && bun run check:codestyle",
+    "test": "bun test apps/backend/test",
+    "deploy:nibrun": "bun run scripts/deploy-nibrun.ts",
+    "test:browser": "bun scripts/test-browser.ts",
+    "test:media": "bun scripts/test-media.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.11",
+    "@types/bun": "^1.4.0",
+    "playwright-core": "^1.63.0",
+    "typescript": "^7.0.2"
+  },
+  "packageManager": "bun@1.4.0"
+}

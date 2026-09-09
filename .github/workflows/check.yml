@@ -1,0 +1,83 @@
+name: Checks and release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DBOS_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v6
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: bun run check:all
+      - run: bun run test
+      - uses: actions/upload-artifact@v7
+        with:
+          name: content-use-linux-x64
+          path: apps/backend/dist/content-use
+          if-no-files-found: error
+
+  publish:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: nibrun-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: content-use-linux-x64
+          path: release
+      - name: Prepare release files
+        run: |
+          cp LICENSE release/
+          cp apps/backend/native/postgres/BUSYBOX-LICENSE release/
+          cp apps/backend/native/postgres/busybox-1.35.0.tar.bz2 release/
+          cd release
+          sha256sum content-use > SHA256SUMS
+      - name: Publish nibrun binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # A superseded run must not replace a newer build's public download.
+          if [ "$(gh api "repos/$GH_REPO/commits/main" --jq .sha)" != "$GITHUB_SHA" ]; then
+            exit 0
+          fi
+          printf 'Built from %s. The deploy button uses this Linux x86_64 binary. Updated after successful checks on main.\n' "$GITHUB_SHA" > release-notes.md
+          if gh release view nibrun-latest >/dev/null 2>&1; then
+            gh release upload nibrun-latest release/* --clobber
+            gh release edit nibrun-latest --prerelease --notes-file release-notes.md
+          else
+            gh release create nibrun-latest release/* --target "$GITHUB_SHA" --title 'Deploy on nibrun' --prerelease --notes-file release-notes.md
+          fi

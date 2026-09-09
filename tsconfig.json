@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["bun"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"]
+  },
+  "include": ["apps/**/*.ts", "apps/**/*.tsx", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "**/dist", "**/public"]
+}
