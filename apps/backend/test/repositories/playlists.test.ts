@@ -3,6 +3,70 @@ import { SqlitePlaylistsRepository } from '../../src/repositories/playlists/repo
 import { SqliteRecordsRepository } from '../../src/repositories/records/repository';
 import { testDatabase } from '../support/database';
 
+test('selective import rolls back its playlist, exclusions, and records together on persistence failure', async () => {
+  const db = await testDatabase();
+  const playlists = new SqlitePlaylistsRepository(db);
+  const records = new SqliteRecordsRepository(db);
+  try {
+    await db.unsafe(`CREATE TRIGGER reject_video BEFORE INSERT ON records
+      WHEN NEW.url='https://www.youtube.com/watch?v=aircAruvnKk'
+      BEGIN SELECT RAISE(ABORT, 'Import failed'); END`);
+    await expect(
+      playlists.importSelected({
+        ownerId: 'alice',
+        youtubeId: 'PLabcdefghijk',
+        url: 'https://www.youtube.com/playlist?list=PLabcdefghijk',
+        title: 'Playlist',
+        videos: [
+          { id: 'rY0wnfFHYbs', title: 'First' },
+          { id: 'aircAruvnKk', title: 'Second' },
+          { id: 'dQw4w9WgXcQ', title: 'Excluded' },
+        ],
+        videoIds: ['rY0wnfFHYbs', 'aircAruvnKk'],
+      }),
+    ).rejects.toThrow('Import failed');
+    expect(await playlists.list({ ownerId: 'alice' })).toEqual([]);
+    expect((await records.list({ ownerId: 'alice', search: '', offset: 0 })).total).toBe(0);
+    expect(await db`SELECT * FROM playlist_videos`).toHaveLength(0);
+  } finally {
+    await db.close();
+  }
+});
+
+test('a direct add racing a playlist import still creates one record', async () => {
+  const db = await testDatabase();
+  const playlists = new SqlitePlaylistsRepository(db);
+  const records = new SqliteRecordsRepository(db);
+  try {
+    const id = await playlists.create({
+      ownerId: 'alice',
+      youtubeId: 'PLabcdefghijk',
+      url: 'https://www.youtube.com/playlist?list=PLabcdefghijk',
+      title: 'Playlist',
+    });
+    const [, record] = await Promise.all([
+      playlists.sync({
+        ownerId: 'alice',
+        id,
+        title: 'Playlist',
+        videos: [{ id: 'rY0wnfFHYbs', title: 'Video' }],
+      }),
+      records.create({
+        ownerId: 'alice',
+        id: 'direct',
+        title: 'Video',
+        url: 'https://youtu.be/rY0wnfFHYbs',
+      }),
+    ]);
+    expect((await records.list({ ownerId: 'alice', search: '', offset: 0 })).total).toBe(1);
+    expect(
+      (await records.playlistLinks({ ownerId: 'alice', ids: [record.id] })).get(record.id),
+    ).toEqual([{ id, title: 'Playlist' }]);
+  } finally {
+    await db.close();
+  }
+});
+
 test('playlist sync reuses individual videos, is idempotent, scopes owners, and preserves deletions', async () => {
   const db = await testDatabase();
   const playlists = new SqlitePlaylistsRepository(db);

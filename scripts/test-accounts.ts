@@ -92,7 +92,9 @@ try {
     }),
     registration: new OwnerRegistrationService(new SqliteOwnerRegistrationRepository(db)),
     accounts: new AccountsService(new SqliteAccountsRepository(db), playlists, discovery, jobs),
-    playlists: new PlaylistsService(playlists, jobs),
+    playlists: new PlaylistsService(playlists, jobs, {
+      list: () => Promise.resolve({ title: 'Test playlist', videos: [] }),
+    }),
     records,
   }).listen({ hostname: '127.0.0.1', port: 3110 });
   assert.equal((await fetch(`${base}/api/accounts`)).status, 401);

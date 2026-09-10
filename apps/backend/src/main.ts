@@ -48,14 +48,15 @@ const hostedCaptions = new HostedCaptions(
 );
 const pipeline = new MediaPipeline(dataFolder, hostedCaptions);
 const playlistRepository = new SqlitePlaylistsRepository(database);
+const playlistDiscovery = new YoutubePlaylists(pipeline, dataFolder);
 const jobs = new JobWorker(
   repository,
   new SqliteJobsRepository(database),
   new RecordProcessor(repository, pipeline),
   playlistRepository,
-  new YoutubePlaylists(pipeline, dataFolder),
+  playlistDiscovery,
 );
-const playlists = new PlaylistsService(playlistRepository, jobs);
+const playlists = new PlaylistsService(playlistRepository, jobs, playlistDiscovery);
 const accounts = new AccountsService(
   new SqliteAccountsRepository(database),
   playlistRepository,

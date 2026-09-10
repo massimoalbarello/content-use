@@ -82,3 +82,18 @@ export const accountPlaylistsOptions = (id: string) =>
     retry: false,
     refetchOnWindowFocus: false,
   });
+
+export const playlistPreviewOptions = (url: string) =>
+  queryOptions({
+    queryKey: ['playlist-preview', url],
+    queryFn: async ({ signal }) =>
+      unwrap(
+        await api.playlists.preview.get({
+          query: { url },
+          fetch: { signal },
+        }),
+      ),
+    enabled: Boolean(url),
+    staleTime: Infinity,
+    retry: false,
+  });

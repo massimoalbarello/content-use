@@ -30,11 +30,15 @@ try {
   await page.goto(base);
   await page.getByRole('button', { name: 'Create your passkey', exact: true }).click();
   await page.getByRole('heading', { name: 'Records', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
+  await page.getByRole('link', { name: 'Playlists', exact: true }).click();
+  await page.getByRole('link', { name: 'Add playlist', exact: true }).click();
   await page
-    .getByLabel('Source URL')
+    .getByLabel('YouTube playlist URL')
     .fill('https://www.youtube.com/playlist?list=PLZHQObOWTQDMsr9K-rj53DwVRMYO3t5Yr');
-  await page.getByRole('button', { name: 'Get captions', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Find videos', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Add selected (12)', exact: true })
+    .click({ timeout: 120000 });
   await page
     .getByRole('heading', { name: 'Essence of calculus', exact: true })
     .waitFor({ timeout: 120000 });
@@ -72,7 +76,7 @@ try {
   await page.reload();
   await page.getByRole('heading', { name: 'Synced records', exact: true }).waitFor();
   await page.getByText('Recent checks', { exact: true }).click();
-  await page.getByText('12 checked · 12 new', { exact: true }).first().waitFor();
+  await page.getByText('12 checked · 0 new', { exact: true }).first().waitFor();
   await page.screenshot({ path: '/tmp/content-use-playlists-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: '/tmp/content-use-playlists-mobile.png', fullPage: true });

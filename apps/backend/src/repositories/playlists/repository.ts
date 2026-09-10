@@ -6,6 +6,7 @@ export interface PlaylistsRepository {
   list(input: Actor & { id?: string }): Promise<Playlist[]>;
   beginPoll(input: Actor & { id: string; pollId: string }): Promise<boolean>;
   create(input: Actor & { youtubeId: string; url: string; title: string }): Promise<string>;
+  importSelected(input: PlaylistImport): Promise<string>;
   followAccount(
     input: Actor & { accountId: string; playlists: AccountPlaylist[] },
   ): Promise<string[] | null>;
@@ -16,6 +17,13 @@ export interface PlaylistsRepository {
   ): Promise<void>;
   failure(input: Actor & { id: string; error: string; pollId?: string }): Promise<void>;
 }
+type PlaylistImport = Actor & {
+  youtubeId: string;
+  url: string;
+  title: string;
+  videos: PlaylistVideo[];
+  videoIds: string[];
+};
 export class SqlitePlaylistsRepository implements PlaylistsRepository {
   constructor(private readonly db: SQL) {}
   async list({ ownerId, id }: Actor & { id?: string }): Promise<Playlist[]> {
@@ -102,6 +110,35 @@ export class SqlitePlaylistsRepository implements PlaylistsRepository {
   }
   create(input: Actor & { youtubeId: string; url: string; title: string }) {
     return followPlaylist(this.db, input);
+  }
+  importSelected(input: PlaylistImport) {
+    return this.db.begin(async (tx) => {
+      const id = await followPlaylist(tx, input);
+      const selected = new Set(input.videoIds);
+      // A seen video with no record is a tombstone: hourly checks must leave it alone.
+      // Explicit selection can restore an excluded/deleted video; automatic syncing cannot.
+      for (const video of input.videos) {
+        if (selected.has(video.id)) {
+          await tx`DELETE FROM playlist_videos WHERE playlist_id=${id} AND video_id=${video.id} AND record_id IS NULL`;
+        } else {
+          await tx`INSERT INTO playlist_videos(playlist_id,video_id,record_id)
+            VALUES(${id},${video.id},NULL) ON CONFLICT(playlist_id,video_id) DO NOTHING`;
+        }
+      }
+      const now = new Date().toISOString();
+      await syncVideos(
+        tx,
+        {
+          ownerId: input.ownerId,
+          id,
+          videos: input.videos.filter((video) => selected.has(video.id)),
+        },
+        now,
+      );
+      await tx`UPDATE playlists SET checked_at=${now},next_check_at=${new Date(Date.now() + 3600000).toISOString()},error=NULL
+        WHERE id=${id} AND owner_id=${input.ownerId}`;
+      return id;
+    });
   }
   followAccount(input: Actor & { accountId: string; playlists: AccountPlaylist[] }) {
     return this.db.begin(async (tx) => {
@@ -210,11 +247,12 @@ async function syncVideos(
   now: string,
 ) {
   // Reuse existing individually imported videos, including alternate YouTube URL forms.
-  const existing = await tx`SELECT id,url FROM records WHERE owner_id=${input.ownerId}`;
+  const existing =
+    await tx`SELECT id,url FROM records WHERE owner_id=${input.ownerId} ORDER BY created_at,id`;
   const byVideo = new Map<string, string>();
   for (const record of existing) {
     const video = youtubeVideoId(record.url);
-    if (video) {
+    if (video && !byVideo.has(video)) {
       byVideo.set(video, record.id);
     }
   }
@@ -231,9 +269,10 @@ async function syncVideos(
     }
     let recordId = byVideo.get(video.id);
     if (!recordId) {
-      added++;
-      recordId = `rec-${crypto.randomUUID()}`;
-      await tx`INSERT INTO records(id,owner_id,title,url,status,duration,created_at,updated_at) VALUES(${recordId},${input.ownerId},${video.title},${`https://www.youtube.com/watch?v=${video.id}`},'queued',${duration},${now},${now})`;
+      const result = await insertVideo(tx, input.ownerId, video, now);
+      recordId = result.id;
+      added += result.added;
+      linked += result.linked;
       byVideo.set(video.id, recordId);
     } else {
       linked++;
@@ -256,4 +295,20 @@ async function fillMissingDuration(
   if (recordId && duration !== null) {
     await tx`UPDATE records SET duration=${duration},updated_at=${now} WHERE id=${recordId} AND owner_id=${ownerId} AND duration IS NULL`;
   }
+}
+
+async function insertVideo(tx: SQL, ownerId: string, video: PlaylistVideo, now: string) {
+  const url = `https://www.youtube.com/watch?v=${video.id}`;
+  const [inserted] =
+    await tx`INSERT INTO records(id,owner_id,title,url,status,duration,created_at,updated_at)
+    SELECT ${`rec-${crypto.randomUUID()}`},${ownerId},${video.title},${url},'queued',${mediaDuration(video.duration)},${now},${now}
+    WHERE NOT EXISTS(SELECT 1 FROM records WHERE owner_id=${ownerId} AND url=${url}) RETURNING id`;
+  const [record] = inserted
+    ? [inserted]
+    : await tx`SELECT id FROM records
+    WHERE owner_id=${ownerId} AND url=${url} ORDER BY created_at,id LIMIT 1`;
+  if (!inserted) {
+    await fillMissingDuration(tx, ownerId, record.id, mediaDuration(video.duration), now);
+  }
+  return { id: record.id as string, added: inserted ? 1 : 0, linked: inserted ? 0 : 1 };
 }

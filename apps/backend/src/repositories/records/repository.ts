@@ -6,6 +6,7 @@ import type {
   RecordFilter,
   RecordStatus,
 } from '#models/records.ts';
+import { youtubeVideoId } from '#models/records.ts';
 
 export type RecordListInput = Actor & {
   search: string;
@@ -97,10 +98,14 @@ export class SqliteRecordsRepository implements RecordsRepository {
       return links;
     }
     const rows: { record_id: string; id: string; title: string }[] = await this.db`
-      SELECT v.record_id,p.id,p.title FROM playlist_videos v
-      JOIN playlists p ON p.id=v.playlist_id JOIN records r ON r.id=v.record_id
-      WHERE p.owner_id=${ownerId} AND r.owner_id=${ownerId}
-      AND r.id IN (SELECT value FROM json_each(${JSON.stringify(ids)})) ORDER BY p.title,p.id`;
+      WITH memberships AS (
+        SELECT v.record_id,p.id,p.title,
+          row_number() OVER (PARTITION BY v.record_id ORDER BY v.rowid) AS position
+        FROM playlist_videos v
+        JOIN playlists p ON p.id=v.playlist_id JOIN records r ON r.id=v.record_id
+        WHERE p.owner_id=${ownerId} AND r.owner_id=${ownerId}
+        AND r.id IN (SELECT value FROM json_each(${JSON.stringify(ids)}))
+      ) SELECT record_id,id,title FROM memberships WHERE position=1`;
     for (const row of rows) {
       const values = links.get(row.record_id) ?? [];
       values.push({ id: row.id, title: row.title });
@@ -114,11 +119,41 @@ export class SqliteRecordsRepository implements RecordsRepository {
     return row ? map(row) : null;
   }
   async create({ ownerId, id, title, url }: Actor & { id: string; title: string; url: string }) {
+    const videoId = youtubeVideoId(url);
+    const sourceUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
+    // Narrow candidates in SQL, then compare the domain identity. Page legacy duplicates
+    // so matching alternate YouTube URLs never materializes the entire owner's library.
+    for (let offset = 0; ; offset += 50) {
+      const candidates: { id: string; url: string }[] = await this
+        .db`SELECT id,url FROM records WHERE owner_id=${ownerId}
+        AND (url=${url} OR (${videoId} IS NOT NULL AND instr(url,${videoId})>0))
+        ORDER BY created_at,id LIMIT 50 OFFSET ${offset}`;
+      const existing = candidates.find(
+        (row) => row.url === url || (videoId !== null && youtubeVideoId(row.url) === videoId),
+      );
+      if (existing) {
+        const record = await this.get({ ownerId, id: existing.id });
+        if (record) {
+          return record;
+        }
+      }
+      if (candidates.length < 50) {
+        break;
+      }
+    }
     const now = new Date().toISOString();
-    const [row]: Row[] = await this
-      .db`INSERT INTO records (id,owner_id,title,url,status,created_at,updated_at) VALUES (${id},${ownerId},${title},${url},'queued',${now},${now}) RETURNING *`;
+    // The source check and insert are one SQLite statement, including for simultaneous adds.
+    const [inserted]: Row[] = await this
+      .db`INSERT INTO records (id,owner_id,title,url,status,created_at,updated_at)
+      SELECT ${id},${ownerId},${title === url ? sourceUrl : title},${sourceUrl},'queued',${now},${now}
+      WHERE NOT EXISTS(SELECT 1 FROM records WHERE owner_id=${ownerId} AND url=${sourceUrl}) RETURNING *`;
+    const [row]: Row[] = inserted
+      ? [inserted]
+      : await this.db`SELECT * FROM records
+      WHERE owner_id=${ownerId} AND url=${sourceUrl} ORDER BY created_at,id LIMIT 1`;
     return map(row!);
   }
+
   async edit({
     ownerId,
     id,

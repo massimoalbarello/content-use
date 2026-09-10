@@ -7,7 +7,12 @@ import {
   EditAccount,
   FollowAccountPlaylists,
 } from '#routes/api/accounts/model.ts';
-import { PlaylistParams, UpdatePlaylist } from '#routes/api/playlists/model.ts';
+import {
+  CreatePlaylist,
+  PlaylistParams,
+  PreviewPlaylist,
+  UpdatePlaylist,
+} from '#routes/api/playlists/model.ts';
 import { CreateRecord, EditRecord, ListRecords, RecordParams } from '#routes/api/records/model.ts';
 import { mediaResponse } from '#routes/media-response.ts';
 import type { AccountsService } from '#services/accounts/service.ts';
@@ -70,14 +75,19 @@ export function createApi({
       { params: AccountParams, body: FollowAccountPlaylists },
     )
     .get('/playlists', ({ ownerId }) => playlists.list({ ownerId }))
+    .get(
+      '/playlists/preview',
+      ({ ownerId, query, request }) => playlists.preview({ ownerId, ...query }, request.signal),
+      { query: PreviewPlaylist },
+    )
     .get('/playlists/:id', ({ ownerId, params }) => playlists.get({ ownerId, ...params }), {
       params: PlaylistParams,
     })
     .post(
       '/playlists',
-      async ({ ownerId, body, status }) =>
-        status(201, await playlists.create({ ownerId, ...body })),
-      { body: CreateRecord },
+      async ({ ownerId, body, request, status }) =>
+        status(201, await playlists.create({ ownerId, ...body }, request.signal)),
+      { body: CreatePlaylist },
     )
     .patch(
       '/playlists/:id',

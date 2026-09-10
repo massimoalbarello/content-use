@@ -38,11 +38,11 @@ export function Dashboard() {
         <Button
           className="h-10 px-4"
           onClick={() => {
-            void navigate({ to: '/new' });
+            void navigate({ to: '/records/new' });
           }}
         >
           <Plus size={16} />
-          Get captions
+          Add records
         </Button>
       </div>
 
@@ -93,7 +93,7 @@ export function Dashboard() {
             <LibraryEmptyState
               filtered={Boolean(search.q || (search.status && search.status !== 'all'))}
               onReset={() => void navigate({ search: { q: '' } })}
-              onCreate={() => void navigate({ to: '/new' })}
+              onCreate={() => void navigate({ to: '/records/new' })}
             />
           )
         )}
